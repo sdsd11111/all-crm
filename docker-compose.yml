@@ -1,0 +1,15 @@
+services:
+  all-crm-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: all-crm-app
+    restart: always
+    ports:
+      - "3008:3000"
+    env_file:
+      - .env.local
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+
