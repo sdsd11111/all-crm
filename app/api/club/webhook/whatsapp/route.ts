@@ -183,7 +183,7 @@ export async function POST(req: Request) {
           })
           await sendWhatsAppMessage(
             phone,
-            `⏳ *Límite de Evaluación Alcanzado*\n\nHola ${customer.name}, ya calificaste a *${chosenCoach.name}* en los últimos 7 días. Para mantener un podio justo, se permite una calificación por coach por semana.\n\n¡Gracias por tu apoyo continuo! 💪`,
+            `⏳ *Límite de Evaluación Alcanzado*\n\nHola ${customer.name}, ya calificaste a *${chosenCoach.name}* en los últimos 7 días. Se permite una calificación por colaborador por semana.\n\n¡Gracias por tu apoyo continuo! 💪`,
             evoInstance
           )
           return NextResponse.json({ status: 'rate_limited' })
@@ -203,7 +203,17 @@ export async function POST(req: Request) {
           },
         })
 
-        const msg = `⭐ *CALIFICANDO A ${chosenCoach.name.toUpperCase()}*\n\n¿Cuántas estrellas le das a su entrenamiento de hoy?\n\nResponde únicamente con un número del *1 al 5*:\n\n⭐ 1 = Muy insatisfecho\n⭐⭐ 2 = Regular\n⭐⭐⭐ 3 = Bueno\n⭐⭐⭐⭐ 4 = Muy bueno\n⭐⭐⭐⭐⭐ 5 = ¡Excelente!`
+        const roleLabels: Record<string, string> = {
+          RECEPCION: 'Recepción',
+          ENTRENADOR: 'Entrenador',
+          TRAINER: 'Entrenador',
+          LIMPIEZA: 'Limpieza',
+          GERENCIA: 'Gerencia',
+          MANAGER: 'Gerencia',
+        }
+        const puestoLabel = roleLabels[chosenCoach.role] || chosenCoach.role || 'Personal'
+
+        const msg = `⭐ *CALIFICANDO A ${chosenCoach.name.toUpperCase()} (${puestoLabel.toUpperCase()})*\n\n¿Cuántas estrellas le das a su atención y servicio de hoy?\n\nResponde únicamente con un número del *1 al 5*:\n\n⭐ 1 = Muy insatisfecho\n⭐⭐ 2 = Regular\n⭐⭐⭐ 3 = Bueno\n⭐⭐⭐⭐ 4 = Muy bueno\n⭐⭐⭐⭐⭐ 5 = ¡Excelente!`
         await sendWhatsAppMessage(phone, msg, evoInstance)
         return NextResponse.json({ status: 'waiting_stars', coach: chosenCoach.name })
       }
@@ -266,7 +276,7 @@ export async function POST(req: Request) {
 
           await sendWhatsAppMessage(
             phone,
-            `🙏 *Gracias por tus ${stars} estrellas.*\n\nQueremos que tu experiencia sea siempre de 5 estrellas. ¿Qué podríamos mejorar o qué sucedió en tu entrenamiento?\n\n_Escribe tu comentario en el siguiente mensaje (o responde "No" si prefieres no comentar):_`,
+            `🙏 *Gracias por tus ${stars} estrellas.*\n\nQueremos que tu experiencia en el club sea siempre de 5 estrellas. ¿Qué podríamos mejorar o qué sucedió con el servicio recibido?\n\n_Escribe tu comentario en el siguiente mensaje (o responde "No" si prefieres no comentar):_`,
             evoInstance
           )
           return NextResponse.json({ status: 'waiting_feedback_comment' })
@@ -481,33 +491,43 @@ async function dispatchBranchFlow(
   const branchId = branch?.id || null
   const branchName = branch?.name || 'Centro'
 
-  // FLUJO 1: CALIFICAR COACH (EVAL)
+  // FLUJO 1: CALIFICAR PERSONAL DEL CLUB (EVAL)
   if (actionType === 'EVAL') {
     const whereCoaches: any = { tenantId: tenant.id, isActive: true }
     if (branchId) {
       whereCoaches.branchId = branchId
     }
 
-    const coaches = await prisma.staff.findMany({
+    const staffList = await prisma.staff.findMany({
       where: whereCoaches,
-      orderBy: { name: 'asc' },
+      orderBy: [{ role: 'asc' }, { name: 'asc' }],
     })
 
-    if (coaches.length === 0) {
+    if (staffList.length === 0) {
       await sendWhatsAppMessage(
         phone,
-        `❌ No hay entrenadores asignados a la *Sede ${branchName}* en este momento. Consulta en recepción.`,
+        `❌ No hay personal registrado en la *Sede ${branchName}* en este momento. Consulta en recepción.`,
         evoInstance
       )
       return NextResponse.json({ status: 'no_coaches_in_branch' })
     }
 
-    let msg = `🏋️ *CALIFICA A TU ENTRENADOR - SEDE ${branchName.toUpperCase()}*\n\n`
-    msg += `Responde con el *número* del coach que deseas calificar:\n\n`
-    coaches.forEach((c, idx) => {
-      msg += `*${idx + 1}.* ${c.name}\n`
+    const roleLabels: Record<string, string> = {
+      RECEPCION: 'Recepción',
+      ENTRENADOR: 'Entrenador',
+      TRAINER: 'Entrenador',
+      LIMPIEZA: 'Limpieza',
+      GERENCIA: 'Gerencia',
+      MANAGER: 'Gerencia',
+    }
+
+    let msg = `👋 *CALIFICA NUESTRO SERVICIO - SEDE ${branchName.toUpperCase()}*\n\n`
+    msg += `¿A qué colaborador o área deseas calificar hoy? Responde con su *número*:\n\n`
+    staffList.forEach((c, idx) => {
+      const puesto = roleLabels[c.role] || c.role || 'Personal'
+      msg += `*${idx + 1}.* ${c.name} _(${puesto})_\n`
     })
-    msg += `\n_Ejemplo: Responde *1* para el primer entrenador._`
+    msg += `\n_Ejemplo: Responde *1* para el primer colaborador._`
 
     await sendWhatsAppMessage(phone, msg, evoInstance)
 

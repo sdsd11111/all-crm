@@ -829,12 +829,12 @@ export default function ReceptionDashboard() {
           </div>
         </div>
 
-        {/* Card 3: Calificar Coach */}
+        {/* Card 3: Calificar Personal del Club */}
         <div className="rounded-2xl bg-[var(--bg-card,#05101C)] border border-[var(--border-card,rgba(0,245,212,0.15))] relative overflow-hidden group transition-all flex flex-col justify-between shadow-xl">
           <div className="relative h-44 w-full overflow-hidden">
             <Image
               src={action_coach_jpg}
-              alt="Calificar a Coach"
+              alt="Calificar al Personal"
               fill
               unoptimized
               className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -852,18 +852,18 @@ export default function ReceptionDashboard() {
 
           <div className="p-5 pt-0 flex-1 flex flex-col justify-between">
             <div>
-              <h3 className="text-lg font-bold text-white mb-1">Calificar a Coach</h3>
+              <h3 className="text-lg font-bold text-white mb-1">Calificar al Personal</h3>
               <p className="text-xs text-zinc-400 mb-4">
-                Deriva 5★ directo a Google Maps y 1-4★ a reporte interno.
+                Recepción, Entrenadores, Limpieza y Gerencia. 5★ a Google Maps, 1-4★ reporte interno.
               </p>
             </div>
             <button
               disabled={generatingQr}
-              onClick={() => openDynamicQr('EVALUATION', 'Calificación de Entrenadores')}
+              onClick={() => openDynamicQr('EVALUATION', 'Calificación del Personal del Club')}
               className="w-full py-3 px-4 rounded-xl bg-zinc-900 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all border border-white/10 active:scale-[0.99] disabled:opacity-50"
             >
               <QrCode className="w-4 h-4" style={{ color: 'var(--color-primary, #00F5D4)' }} />
-              {generatingQr ? 'Generando QR Único...' : 'Proyectar QR Coach'}
+              {generatingQr ? 'Generando QR Único...' : 'Proyectar QR Personal'}
             </button>
           </div>
         </div>

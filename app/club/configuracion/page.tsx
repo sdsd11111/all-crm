@@ -38,14 +38,16 @@ export default function ClubConfig() {
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [loadingQr, setLoadingQr] = useState(false)
 
-  // Gestión de Entrenadores
+  // Gestión de Personal del Club (Staff)
   const [coaches, setCoaches] = useState<any[]>([])
   const [newCoachName, setNewCoachName] = useState('')
+  const [newCoachRole, setNewCoachRole] = useState('ENTRENADOR')
   const [addingCoach, setAddingCoach] = useState(false)
   const [newCoachAvatarUrl, setNewCoachAvatarUrl] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [editingCoachId, setEditingCoachId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const [editRole, setEditRole] = useState('ENTRENADOR')
   const [editAvatarUrl, setEditAvatarUrl] = useState('')
   const [updatingCoach, setUpdatingCoach] = useState(false)
 
@@ -197,36 +199,43 @@ export default function ClubConfig() {
     if (!newCoachName.trim()) return
     try {
       setAddingCoach(true)
-      await axios.post('/api/club/coaches', { name: newCoachName, avatarUrl: newCoachAvatarUrl || null })
+      await axios.post('/api/club/coaches', {
+        name: newCoachName,
+        role: newCoachRole,
+        avatarUrl: newCoachAvatarUrl || null
+      })
       setNewCoachName('')
+      setNewCoachRole('ENTRENADOR')
       setNewCoachAvatarUrl('')
       loadCoaches()
     } catch (e: any) {
-      alert('Error agregando coach: ' + (e.response?.data?.error || e.message))
+      alert('Error agregando colaborador: ' + (e.response?.data?.error || e.message))
     } finally {
       setAddingCoach(false)
     }
   }
 
   const handleDeleteCoach = async (id: string) => {
-    if (!confirm('¿Seguro que deseas eliminar este entrenador?')) return
+    if (!confirm('¿Seguro que deseas eliminar a este colaborador del equipo?')) return
     try {
       await axios.delete(`/api/club/coaches?id=${id}`)
       loadCoaches()
     } catch (e: any) {
-      alert('Error eliminando coach: ' + (e.response?.data?.error || e.message))
+      alert('Error eliminando colaborador: ' + (e.response?.data?.error || e.message))
     }
   }
 
   const startEditCoach = (coach: any) => {
     setEditingCoachId(coach.id)
     setEditName(coach.name)
+    setEditRole(coach.role || 'ENTRENADOR')
     setEditAvatarUrl(coach.avatarUrl || '')
   }
 
   const cancelEditCoach = () => {
     setEditingCoachId(null)
     setEditName('')
+    setEditRole('ENTRENADOR')
     setEditAvatarUrl('')
   }
 
@@ -240,12 +249,13 @@ export default function ClubConfig() {
       await axios.put('/api/club/coaches', {
         id,
         name: editName.trim(),
+        role: editRole,
         avatarUrl: editAvatarUrl.trim() || null,
       })
       cancelEditCoach()
       loadCoaches()
     } catch (e: any) {
-      alert('Error actualizando coach: ' + (e.response?.data?.error || e.message))
+      alert('Error actualizando colaborador: ' + (e.response?.data?.error || e.message))
     } finally {
       setUpdatingCoach(false)
     }
@@ -693,13 +703,13 @@ export default function ClubConfig() {
             )}
           </div>
 
-          {/* Gestión de Entrenadores Reales */}
+          {/* Gestión de Personal y Equipo del Club */}
           <div className="p-6 rounded-2xl bg-[var(--bg-card,#05101C)] border border-[var(--border-card,rgba(0,245,212,0.15))] space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5" style={{ color: 'var(--color-primary, #00F5D4)' }} />
                 <div>
-                  <h2 className="text-lg font-bold text-white">Entrenadores</h2>
+                  <h2 className="text-lg font-bold text-white">Equipo y Personal del Club</h2>
                   <span className="text-xs text-zinc-400 font-medium">
                     Sede activa: <strong className="text-white">{theme.branchName || 'Sede Principal'}</strong>
                   </span>
@@ -709,30 +719,31 @@ export default function ClubConfig() {
             </div>
 
             <form onSubmit={handleAddCoach} className="space-y-2">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <input
                   type="text"
-                  placeholder="Nombre del nuevo entrenador..."
+                  placeholder="Nombre del colaborador..."
                   value={newCoachName}
                   onChange={(e) => setNewCoachName(e.target.value)}
-                  className="flex-1 px-4 py-2 bg-zinc-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none"
+                  className="sm:col-span-2 px-4 py-2 bg-zinc-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none"
                 />
-                <button
-                  type="submit"
-                  disabled={addingCoach || uploadingAvatar}
-                  className="px-4 py-2 text-black font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 shrink-0"
-                  style={{ backgroundColor: 'var(--color-primary, #00F5D4)' }}
+                <select
+                  value={newCoachRole}
+                  onChange={(e) => setNewCoachRole(e.target.value)}
+                  className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
                 >
-                  <Plus className="w-4 h-4 text-black" />
-                  Agregar
-                </button>
+                  <option value="RECEPCION">Recepción</option>
+                  <option value="ENTRENADOR">Entrenador / Coach</option>
+                  <option value="LIMPIEZA">Limpieza / Mtto</option>
+                  <option value="GERENCIA">Gerencia / Admin</option>
+                </select>
               </div>
 
               {/* Input URL + Botón para subir imagen desde el equipo */}
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="URL o sube una imagen..."
+                  placeholder="URL o sube una foto del colaborador..."
                   value={newCoachAvatarUrl}
                   onChange={(e) => setNewCoachAvatarUrl(e.target.value)}
                   className="flex-1 px-4 py-2 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500"
@@ -748,12 +759,30 @@ export default function ClubConfig() {
                     disabled={uploadingAvatar}
                   />
                 </label>
+                <button
+                  type="submit"
+                  disabled={addingCoach || uploadingAvatar}
+                  className="px-4 py-2 text-black font-bold text-sm rounded-xl transition-all flex items-center gap-1.5 shrink-0"
+                  style={{ backgroundColor: 'var(--color-primary, #00F5D4)' }}
+                >
+                  <Plus className="w-4 h-4 text-black" />
+                  Agregar
+                </button>
               </div>
             </form>
 
             <div className="divide-y divide-white/10 max-h-80 overflow-y-auto space-y-1">
               {coaches.map((c) => {
                 const isEditing = editingCoachId === c.id
+                const roleLabels: Record<string, string> = {
+                  RECEPCION: 'Recepción',
+                  ENTRENADOR: 'Entrenador',
+                  TRAINER: 'Entrenador',
+                  LIMPIEZA: 'Limpieza',
+                  GERENCIA: 'Gerencia',
+                  MANAGER: 'Gerencia',
+                }
+                const roleBadge = roleLabels[c.role] || c.role || 'Personal'
 
                 return (
                   <div key={c.id} className="py-2.5">
@@ -761,7 +790,7 @@ export default function ClubConfig() {
                       /* Formulario inline de Edición */
                       <div className="p-3 bg-zinc-900/90 rounded-xl border border-white/10 space-y-2.5 animate-in fade-in">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-white">Editar Entrenador</span>
+                          <span className="text-xs font-bold text-white">Editar Colaborador</span>
                           <button
                             type="button"
                             onClick={cancelEditCoach}
@@ -771,13 +800,25 @@ export default function ClubConfig() {
                           </button>
                         </div>
 
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          placeholder="Nombre del entrenador"
-                          className="w-full px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
-                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            placeholder="Nombre del colaborador"
+                            className="sm:col-span-2 px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
+                          />
+                          <select
+                            value={editRole}
+                            onChange={(e) => setEditRole(e.target.value)}
+                            className="px-2 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
+                          >
+                            <option value="RECEPCION">Recepción</option>
+                            <option value="ENTRENADOR">Entrenador</option>
+                            <option value="LIMPIEZA">Limpieza</option>
+                            <option value="GERENCIA">Gerencia</option>
+                          </select>
+                        </div>
 
                         <div className="flex items-center gap-2">
                           <input
@@ -821,7 +862,7 @@ export default function ClubConfig() {
                         </div>
                       </div>
                     ) : (
-                      /* Vista normal de Entrenador */
+                      /* Vista normal del Colaborador */
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl overflow-hidden bg-zinc-900 border border-white/10 shrink-0 flex items-center justify-center">
@@ -833,21 +874,23 @@ export default function ClubConfig() {
                           </div>
                           <div>
                             <span className="text-sm font-bold text-white block">{c.name}</span>
-                            <span className="text-xs text-zinc-500 block">Coach Titular</span>
+                            <span className="text-[11px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-zinc-300 font-semibold inline-block mt-0.5">
+                              {roleBadge}
+                            </span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => startEditCoach(c)}
-                            title="Editar entrenador y foto"
+                            title="Editar colaborador y foto"
                             className="p-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteCoach(c.id)}
-                            title="Eliminar entrenador"
+                            title="Eliminar colaborador"
                             className="p-1.5 rounded-lg bg-zinc-900 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
                           >
                             <Trash2 className="w-4 h-4" />

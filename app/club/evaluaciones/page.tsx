@@ -59,11 +59,11 @@ export default function CoachesRanking() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-2">
-            PODIO DE COACHES & OPINIONES
+            RANKING DEL PERSONAL & OPINIONES
             <Trophy className="w-7 h-7" style={{ color: 'var(--accent-gold, #F59E0B)' }} />
           </h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Calificaciones de socios en tiempo real en <strong className="text-white">{theme.branchName || 'Sede Principal'}</strong>.
+            Calificaciones de socios en tiempo real para Recepción, Entrenadores, Limpieza y Gerencia en <strong className="text-white">{theme.branchName || 'Sede Principal'}</strong>.
           </p>
         </div>
 
@@ -229,7 +229,7 @@ export default function CoachesRanking() {
                 onChange={(e) => setSelectedCoach(e.target.value)}
                 className="bg-zinc-900 border border-white/10 text-xs text-white rounded-xl px-3 py-2 focus:outline-none"
               >
-                <option value="ALL">Todos los Coaches</option>
+                <option value="ALL">Todo el Personal</option>
                 {coaches.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -342,7 +342,7 @@ export default function CoachesRanking() {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Cabecera del Entrenador */}
+            {/* Cabecera del Colaborador */}
             <div className="flex items-center gap-4 pb-6 border-b border-white/10">
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl text-black shadow-lg"
@@ -355,7 +355,7 @@ export default function CoachesRanking() {
                   className="text-[11px] uppercase font-bold tracking-widest block"
                   style={{ color: 'var(--color-primary, #00F5D4)' }}
                 >
-                  Perfil de Entrenador
+                  Perfil del Colaborador
                 </span>
                 <h3 className="text-2xl font-black text-white">{activeCoachModal.name}</h3>
                 <div className="flex items-center gap-3 mt-1">
@@ -370,15 +370,15 @@ export default function CoachesRanking() {
               </div>
             </div>
 
-            {/* Lista de opiniones del Coach */}
+            {/* Lista de opiniones del Colaborador */}
             <div className="flex-1 overflow-y-auto py-4 space-y-3">
               <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                Reseñas de este entrenador ({coachModalEvaluations.length})
+                Reseñas recibidas ({coachModalEvaluations.length})
               </h4>
 
               {coachModalEvaluations.length === 0 ? (
                 <div className="text-center py-12 text-zinc-500 text-sm">
-                  Este entrenador aún no tiene reseñas registradas con los filtros actuales.
+                  Este colaborador aún no tiene reseñas registradas con los filtros actuales.
                 </div>
               ) : (
                 <div className="divide-y divide-white/10">
@@ -425,7 +425,7 @@ export default function CoachesRanking() {
 
             {/* Footer Modal */}
             <div className="pt-4 border-t border-white/10 flex justify-between items-center text-xs text-zinc-500">
-              <span>Evaluación Docente</span>
+              <span>Evaluación de Desempeño</span>
               <button
                 onClick={() => {
                   setSelectedCoach(activeCoachModal.id)
@@ -437,7 +437,7 @@ export default function CoachesRanking() {
                   borderColor: 'color-mix(in srgb, var(--color-primary, #00F5D4) 30%, transparent)'
                 }}
               >
-                Filtrar tabla principal por este Coach
+                Filtrar tabla por este colaborador
               </button>
             </div>
           </div>

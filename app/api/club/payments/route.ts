@@ -209,6 +209,9 @@ export async function POST(req: Request) {
       }
 
       return { updatedPayment, newBalance, friendPassCodes, referrerBonusAmt, referrerNewBalance }
+    }, {
+      maxWait: 15000, // Tiempo máximo de espera para conseguir conexión del pool (15s)
+      timeout: 25000, // Tiempo máximo de ejecución de la transacción completa (25s)
     })
 
     const tipo = payment.type === 'MEMBERSHIP' ? 'cuota mensual' : 'compra en barra'
