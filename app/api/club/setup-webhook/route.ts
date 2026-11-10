@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
     const targetWebhookUrl =
       webhookUrl ||
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/club/webhook/whatsapp`
+      `${process.env.NEXT_PUBLIC_APP_URL || 'https://allcrm.178.238.238.158.sslip.io'}/api/club/webhook/whatsapp`
 
     const response = await fetch(
       `${EVOLUTION_API_URL}/webhook/set/${EVOLUTION_INSTANCE}`,

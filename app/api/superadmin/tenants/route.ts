@@ -230,7 +230,7 @@ export async function POST(req: Request) {
 
           // Configurar automáticamente el webhook de Evolution para la nueva instancia
           try {
-            const webhookAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://titanus-app.vercel.app'
+            const webhookAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://allcrm.178.238.238.158.sslip.io'
             await fetch(`${evoUrl}/webhook/set/${cleanedInstance}`, {
               method: 'POST',
               headers: {
