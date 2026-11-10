@@ -33,9 +33,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const { tenantId } = await getTenantFromRequest(req)
-    const { paymentId, action, finalAmount, productDescription, referrerCustomerId } = await req.json()
+    const { paymentId, action, finalAmount, cashbackAmt: incomingCashbackAmt, productDescription, referrerCustomerId } = await req.json()
     // action: 'APPROVE' | 'REJECT'
     // finalAmount: opcional, para cuando recepción edita el monto de retail
+    // cashbackAmt: opcional, monto exacto de cashback en dólares asignado en caja
     // referrerCustomerId: opcional, socio que lo refirió para acreditarle comisión/bono
 
     const payment = await prisma.payment.findFirst({
@@ -63,10 +64,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, status: 'REJECTED' })
     }
 
-    // Calcular montos finales (para retail, el monto puede venir de recepción)
-    const amount = finalAmount ? Number(finalAmount) : Number(payment.amount)
-    const cashbackPct = Number(payment.cashbackPct)
-    const cashbackAmt = parseFloat(((amount * cashbackPct) / 100).toFixed(2))
+    // Calcular montos finales (monto y cashback en valor fijo o porcentaje)
+    const amount = finalAmount !== undefined && finalAmount !== null && finalAmount !== '' ? Number(finalAmount) : Number(payment.amount)
+    let cashbackAmt = 0
+    if (incomingCashbackAmt !== undefined && incomingCashbackAmt !== null && incomingCashbackAmt !== '') {
+      // Valor fijo explícito en dólares asignado por recepción o por el plan
+      cashbackAmt = parseFloat(Number(incomingCashbackAmt).toFixed(2))
+    } else if (payment.cashbackAmt && Number(payment.cashbackAmt) > 0) {
+      // Valor ya calculado al crear el pago
+      cashbackAmt = Number(payment.cashbackAmt)
+    } else {
+      // Fallback porcentual de seguridad
+      const cashbackPct = Number(payment.cashbackPct || 0)
+      cashbackAmt = parseFloat(((amount * cashbackPct) / 100).toFixed(2))
+    }
 
     // Verificar socio referente si se proporcionó
     let referrerCustomer: any = null
@@ -137,7 +148,7 @@ export async function POST(req: Request) {
           walletId: wallet.id,
           type: 'CASHBACK_EARNED',
           amount: cashbackAmt,
-          description: `Cashback ${cashbackPct}% por ${payment.type === 'MEMBERSHIP' ? 'Cuota' : `Barra/Retail${productDescription ? ` (${productDescription})` : ''}`} - $${amount.toFixed(2)}`,
+          description: `Cashback +$${cashbackAmt.toFixed(2)} USD por ${payment.type === 'MEMBERSHIP' ? 'Cuota' : `Barra/Retail${productDescription ? ` (${productDescription})` : ''}`} - $${amount.toFixed(2)}`,
           referenceId: payment.id,
         },
       })
@@ -216,7 +227,7 @@ export async function POST(req: Request) {
     // WhatsApp al cliente pagador
     await sendWhatsAppMessage(
       payment.customer.phone,
-      `✅ *¡Pago Aprobado en Caja!*\n\n🏋️ *${payment.tenant.name}*\n\n💵 ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}: *$${amount.toFixed(2)} USD*${prodLine}\n🎁 Cashback acreditado: *+$${cashbackAmt.toFixed(2)} USD* (${cashbackPct}%)\n💰 Tu nuevo saldo en Monedero: *$${result.newBalance.toFixed(2)} USD*${passesSection}\n\n¡Gracias por tu visita! Puedes canjear tu saldo acumulado en recepción. 💪`,
+      `✅ *¡Pago Aprobado en Caja!*\n\n🏋️ *${payment.tenant.name}*\n\n💵 ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}: *$${amount.toFixed(2)} USD*${prodLine}\n🎁 Cashback acreditado: *+$${cashbackAmt.toFixed(2)} USD*\n💰 Tu nuevo saldo en Monedero: *$${result.newBalance.toFixed(2)} USD*${passesSection}\n\n¡Gracias por tu visita! Puedes canjear tu saldo acumulado en recepción. 💪`,
       instanceName
     )
 

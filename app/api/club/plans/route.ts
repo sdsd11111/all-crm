@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const { tenantId } = await getTenantFromRequest(req)
-    const { name, price, durationDays } = await req.json()
+    const { name, price, durationDays, cashbackAmount } = await req.json()
 
     if (!name || price === undefined) {
       return NextResponse.json({ error: 'Nombre y precio son obligatorios' }, { status: 400 })
@@ -35,6 +35,7 @@ export async function POST(req: Request) {
         name: name.trim(),
         price: Number(price),
         durationDays: durationDays ? parseInt(durationDays) : 30,
+        cashbackAmount: cashbackAmount !== undefined ? Number(cashbackAmount) : 0,
         isActive: true,
       },
     })
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const { tenantId } = await getTenantFromRequest(req)
-    const { id, name, price, durationDays, isActive } = await req.json()
+    const { id, name, price, durationDays, cashbackAmount, isActive } = await req.json()
 
     if (!id) {
       return NextResponse.json({ error: 'ID es obligatorio' }, { status: 400 })
@@ -71,6 +72,7 @@ export async function PUT(req: Request) {
         name: name !== undefined ? name.trim() : undefined,
         price: price !== undefined ? Number(price) : undefined,
         durationDays: durationDays !== undefined ? parseInt(durationDays) : undefined,
+        cashbackAmount: cashbackAmount !== undefined ? Number(cashbackAmount) : undefined,
         isActive: isActive !== undefined ? Boolean(isActive) : undefined,
       },
     })

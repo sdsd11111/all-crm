@@ -54,11 +54,13 @@ export default function ClubConfig() {
   const [loadingPlans, setLoadingPlans] = useState(false)
   const [newPlanName, setNewPlanName] = useState('')
   const [newPlanPrice, setNewPlanPrice] = useState('')
+  const [newPlanCashback, setNewPlanCashback] = useState('2.00')
   const [newPlanMonths, setNewPlanMonths] = useState('1')
   const [addingPlan, setAddingPlan] = useState(false)
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editPlanName, setEditPlanName] = useState('')
   const [editPlanPrice, setEditPlanPrice] = useState('')
+  const [editPlanCashback, setEditPlanCashback] = useState('0')
   const [editPlanMonths, setEditPlanMonths] = useState('1')
   const [updatingPlan, setUpdatingPlan] = useState(false)
 
@@ -124,10 +126,12 @@ export default function ClubConfig() {
       await axios.post('/api/club/plans', {
         name: newPlanName.trim(),
         price: parseFloat(newPlanPrice),
+        cashbackAmount: parseFloat(newPlanCashback) || 0,
         durationDays: months * 30,
       })
       setNewPlanName('')
       setNewPlanPrice('')
+      setNewPlanCashback('2.00')
       setNewPlanMonths('1')
       loadPlans()
     } catch (e: any) {
@@ -151,6 +155,7 @@ export default function ClubConfig() {
     setEditingPlanId(plan.id)
     setEditPlanName(plan.name)
     setEditPlanPrice(String(plan.price))
+    setEditPlanCashback(String(plan.cashbackAmount ?? 0))
     const calcMonths = Math.max(1, Math.round((plan.durationDays || 30) / 30))
     setEditPlanMonths(String(calcMonths))
   }
@@ -159,6 +164,7 @@ export default function ClubConfig() {
     setEditingPlanId(null)
     setEditPlanName('')
     setEditPlanPrice('')
+    setEditPlanCashback('0')
     setEditPlanMonths('1')
   }
 
@@ -174,6 +180,7 @@ export default function ClubConfig() {
         id,
         name: editPlanName.trim(),
         price: parseFloat(editPlanPrice),
+        cashbackAmount: parseFloat(editPlanCashback) || 0,
         durationDays: months * 30,
       })
       cancelEditPlan()
@@ -355,92 +362,49 @@ export default function ClubConfig() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Columna Izquierda: Sliders de Comisiones y Ajustes */}
         <div className="space-y-6">
-          {/* Porcentajes de Cashback (Monedero) tipo acordeón / tab */}
-          <div className="rounded-2xl bg-[var(--bg-card,#05101C)] border border-[var(--border-card,rgba(0,245,212,0.15))] overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setCashbackOpen(!cashbackOpen)}
-              className="w-full flex items-center justify-between p-5 text-left hover:bg-white/5 transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <Sliders className="w-5 h-5" style={{ color: 'var(--color-primary, #00F5D4)' }} />
-                <div>
-                  <h2 className="text-base font-bold text-white">Porcentajes de Cashback (Monedero)</h2>
-                  <p className="text-xs text-zinc-400">Cuota: {membershipCashback}% · Tienda: {retailCashback}%</p>
-                </div>
+          {/* Información General y Enlaces de Fidelización */}
+          <div className="rounded-2xl bg-[var(--bg-card,#05101C)] border border-[var(--border-card,rgba(0,245,212,0.15))] p-5 space-y-4">
+            <div className="flex items-center gap-3 border-b border-white/10 pb-3">
+              <Sliders className="w-5 h-5" style={{ color: 'var(--color-primary, #00F5D4)' }} />
+              <div>
+                <h2 className="text-base font-bold text-white">Configuración del Club</h2>
+                <p className="text-xs text-zinc-400">Canales oficiales de WhatsApp y Google Reviews</p>
               </div>
-              <span className="text-xs font-bold px-3 py-1.5 rounded-lg border" style={{ color: 'var(--color-primary, #00F5D4)', borderColor: 'color-mix(in srgb, var(--color-primary, #00F5D4) 30%, transparent)' }}>
-                {cashbackOpen ? 'Cerrar ▲' : 'Configurar ▼'}
-              </span>
-            </button>
+            </div>
 
-            {cashbackOpen && (
-              <div className="px-5 pb-5 space-y-5 border-t border-white/10 pt-4 animate-in fade-in">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-zinc-300 font-bold">Cashback por Mensualidad</span>
-                    <span className="font-black text-base" style={{ color: 'var(--color-primary, #00F5D4)' }}>{membershipCashback}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    value={membershipCashback}
-                    onChange={(e) => setMembershipCashback(Number(e.target.value))}
-                    className="w-full cursor-pointer"
-                    style={{ accentColor: 'var(--color-primary, #00F5D4)' }}
-                  />
-                  <span className="text-xs text-zinc-500">
-                    Se acredita al monedero del socio al aprobar su cuota mensual en caja.
-                  </span>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-zinc-300 font-bold">Cashback por Tienda / Barra Retail</span>
-                    <span className="font-black text-base" style={{ color: 'var(--color-primary, #00F5D4)' }}>{retailCashback}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="30"
-                    value={retailCashback}
-                    onChange={(e) => setRetailCashback(Number(e.target.value))}
-                    className="w-full cursor-pointer"
-                    style={{ accentColor: 'var(--color-primary, #00F5D4)' }}
-                  />
-                  <span className="text-xs text-zinc-500">
-                    Se acredita al monedero por compras de batidos, proteínas o snacks.
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-zinc-300 mb-2">
-                    Enlace Directo de Google Reviews (5 Estrellas)
-                  </label>
-                  <input
-                    type="text"
-                    value={reviewUrl}
-                    onChange={(e) => setReviewUrl(e.target.value)}
-                    placeholder="https://g.page/r/titanus-gym/review"
-                    className="w-full px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-zinc-300 mb-2">
-                    WhatsApp Oficial del Gimnasio
-                  </label>
-                  <input
-                    type="text"
-                    value={whatsappPhone}
-                    onChange={(e) => setWhatsappPhone(e.target.value)}
-                    placeholder="593987654321"
-                    className="w-full px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none"
-                  />
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase tracking-wider">
+                  Enlace Directo de Google Reviews (5 Estrellas)
+                </label>
+                <input
+                  type="text"
+                  value={reviewUrl}
+                  onChange={(e) => setReviewUrl(e.target.value)}
+                  placeholder="https://g.page/r/titanus-gym/review"
+                  className="w-full px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                />
+                <span className="text-[11px] text-zinc-500 mt-1 block">
+                  Enlace que se enviará automáticamente a los socios que califiquen con 5 estrellas.
+                </span>
               </div>
-            )}
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5 uppercase tracking-wider">
+                  WhatsApp Oficial del Gimnasio
+                </label>
+                <input
+                  type="text"
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                  placeholder="593987654321"
+                  className="w-full px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none"
+                />
+                <span className="text-[11px] text-zinc-500 mt-1 block">
+                  Número con código de país para notificaciones y contacto directo.
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Gestión de Planes de Membresía */}
@@ -456,7 +420,7 @@ export default function ClubConfig() {
             {/* Formulario para agregar nuevo plan */}
             <form onSubmit={handleAddPlan} className="space-y-3 bg-zinc-900/60 p-4 rounded-xl border border-white/5">
               <div className="text-xs font-bold text-zinc-400">Crear Nuevo Plan</div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 <input
                   type="text"
                   placeholder="Ej: Mensualidad VIP"
@@ -476,22 +440,35 @@ export default function ClubConfig() {
                     className="w-full pl-7 pr-3 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500"
                   />
                 </div>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-xs text-zinc-400">+$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Cashback $"
+                    value={newPlanCashback}
+                    onChange={(e) => setNewPlanCashback(e.target.value)}
+                    title="Cashback fijo en dólares que recibe el socio"
+                    className="w-full pl-8 pr-2 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500"
+                  />
+                </div>
                 <div className="flex items-center gap-2">
                   <select
                     value={newPlanMonths}
                     onChange={(e) => setNewPlanMonths(e.target.value)}
                     className="w-full px-3 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none"
                   >
-                    <option value="1">1 Mes (30 días)</option>
-                    <option value="2">2 Meses (60 días)</option>
-                    <option value="3">3 Meses (Trimestre)</option>
-                    <option value="6">6 Meses (Semestre)</option>
+                    <option value="1">1 Mes (30 d)</option>
+                    <option value="2">2 Meses (60 d)</option>
+                    <option value="3">3 Meses (Trim)</option>
+                    <option value="6">6 Meses (Sem)</option>
                     <option value="12">12 Meses (Anual)</option>
                   </select>
                   <button
                     type="submit"
                     disabled={addingPlan}
-                    className="px-4 py-2 text-black font-bold text-xs rounded-xl transition-all flex items-center gap-1 shrink-0"
+                    className="px-3 py-2 text-black font-bold text-xs rounded-xl transition-all flex items-center gap-1 shrink-0"
                     style={{ backgroundColor: 'var(--color-primary, #00F5D4)' }}
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -505,12 +482,14 @@ export default function ClubConfig() {
             <div className="divide-y divide-white/10 max-h-80 overflow-y-auto space-y-1">
               {plans.length === 0 ? (
                 <div className="text-center py-6 text-xs text-zinc-500">
-                  No hay planes creados aún. Añade uno arriba (ej: Mensualidad $30.00).
+                  No hay planes creados aún. Añade uno arriba (ej: Mensualidad $30.00 con $2.00 cashback).
                 </div>
               ) : (
                 plans.map((p) => {
                   const isEditing = editingPlanId === p.id
-                  const cashbackAmt = ((Number(p.price) * membershipCashback) / 100).toFixed(2)
+                  const cashbackAmt = p.cashbackAmount !== undefined && p.cashbackAmount !== null
+                    ? Number(p.cashbackAmount).toFixed(2)
+                    : '0.00'
                   const planMonths = Math.max(1, Math.round((p.durationDays || 30) / 30))
 
                   return (
@@ -527,7 +506,7 @@ export default function ClubConfig() {
                               <X className="w-4 h-4" />
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                             <input
                               type="text"
                               value={editPlanName}
@@ -537,8 +516,17 @@ export default function ClubConfig() {
                             <input
                               type="number"
                               step="0.01"
+                              placeholder="Precio $"
                               value={editPlanPrice}
                               onChange={(e) => setEditPlanPrice(e.target.value)}
+                              className="px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="Cashback $"
+                              value={editPlanCashback}
+                              onChange={(e) => setEditPlanCashback(e.target.value)}
                               className="px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
                             />
                             <div className="flex items-center gap-2">
@@ -547,10 +535,10 @@ export default function ClubConfig() {
                                 onChange={(e) => setEditPlanMonths(e.target.value)}
                                 className="w-full px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
                               >
-                                <option value="1">1 Mes (30 días)</option>
-                                <option value="2">2 Meses (60 días)</option>
-                                <option value="3">3 Meses (Trimestre)</option>
-                                <option value="6">6 Meses (Semestre)</option>
+                                <option value="1">1 Mes (30 d)</option>
+                                <option value="2">2 Meses (60 d)</option>
+                                <option value="3">3 Meses (Trim)</option>
+                                <option value="6">6 Meses (Sem)</option>
                                 <option value="12">12 Meses (Anual)</option>
                               </select>
                               <button
@@ -586,7 +574,7 @@ export default function ClubConfig() {
                                 </span>
                                 <span>&bull;</span>
                                 <span style={{ color: 'var(--color-primary, #00F5D4)' }} className="font-bold">
-                                  +${cashbackAmt} cashback ({membershipCashback}%)
+                                  +${cashbackAmt} cashback
                                 </span>
                               </div>
                             </div>

@@ -330,8 +330,10 @@ export async function POST(req: Request) {
       if (index >= 0 && index < plans.length) {
         const chosenPlan = plans[index]
         const amount = Number(chosenPlan.price)
-        const cashbackPct = Number(tenant.referralCommPct)
-        const cashbackAmt = parseFloat(((amount * cashbackPct) / 100).toFixed(2))
+        // Usar cashback fijo en dólares definido en el plan
+        const cashbackAmt = chosenPlan.cashbackAmount !== undefined && chosenPlan.cashbackAmount !== null
+          ? Number(chosenPlan.cashbackAmount)
+          : parseFloat(((amount * Number(tenant.referralCommPct || 0)) / 100).toFixed(2))
 
         await prisma.qrToken.deleteMany({
           where: { tenantId: tenant.id, token: { startsWith: `PLAN_SEL_${phone}` } },
@@ -345,7 +347,7 @@ export async function POST(req: Request) {
             customerId: customer.id,
             type: 'MEMBERSHIP',
             amount,
-            cashbackPct,
+            cashbackPct: 0,
             cashbackAmt,
             status: 'PENDING',
             description: chosenPlan.name,
@@ -354,7 +356,7 @@ export async function POST(req: Request) {
 
         await sendWhatsAppMessage(
           phone,
-          `✅ *Plan Seleccionado: ${chosenPlan.name}*\n\n💵 Monto a pagar en caja: *$${amount.toFixed(2)} USD*\n🎁 Cashback que ganarás: *+$${cashbackAmt.toFixed(2)} USD* (${cashbackPct}%)\n💰 Saldo actual en tu Monedero: *$${currentBalance.toFixed(2)} USD*\n\n🔔 *Acércate a recepción para cancelar.* Una vez que el staff apruebe tu pago en el monitor, tu saldo de cashback se acreditará automáticamente.`,
+          `✅ *Plan Seleccionado: ${chosenPlan.name}*\n\n💵 Monto a pagar en caja: *$${amount.toFixed(2)} USD*\n🎁 Cashback que ganarás: *+$${cashbackAmt.toFixed(2)} USD*\n💰 Saldo actual en tu Monedero: *$${currentBalance.toFixed(2)} USD*\n\n🔔 *Acércate a recepción para cancelar.* Una vez que el staff apruebe tu pago en el monitor, tu saldo de cashback se acreditará automáticamente.`,
           evoInstance
         )
         return NextResponse.json({ status: 'plan_payment_queued', plan: chosenPlan.name })
@@ -535,7 +537,9 @@ async function dispatchBranchFlow(
     msg += `Hola *${customer.name}*! Responde con el *número* del plan que deseas abonar en caja:\n\n`
 
     plans.forEach((p, idx) => {
-      const cashbackEst = ((Number(p.price) * Number(tenant.referralCommPct)) / 100).toFixed(2)
+      const cashbackEst = p.cashbackAmount !== undefined && p.cashbackAmount !== null
+        ? Number(p.cashbackAmount).toFixed(2)
+        : ((Number(p.price) * Number(tenant.referralCommPct || 0)) / 100).toFixed(2)
       msg += `*${idx + 1}.* ${p.name} — *$${Number(p.price).toFixed(2)} USD*\n   └ 🎁 Ganas *$${cashbackEst} USD* de Cashback\n\n`
     })
     msg += `_Responde con el número de tu plan (ej: *1* o *2*)._`
@@ -578,7 +582,7 @@ async function dispatchBranchFlow(
 
     await sendWhatsAppMessage(
       phone,
-      `🥤 *COMPRA EN BARRA - SEDE ${branchName.toUpperCase()}*\n\nHola *${customer.name}*!\n\nTu consumo fue enviado al monitor de recepción de la *Sede ${branchName}*. El staff confirmará el monto de tus productos y una vez aprobado, se acreditará tu *${cashbackPct}% de Cashback* a tu Billetera Digital.\n\n💰 Saldo actual: *$${currentBalance.toFixed(2)} USD*`,
+      `🥤 *COMPRA EN BARRA - SEDE ${branchName.toUpperCase()}*\n\nHola *${customer.name}*!\n\nTu consumo fue enviado al monitor de recepción de la *Sede ${branchName}*. El staff confirmará los productos y el cashback que recibirás en tu Billetera Digital.\n\n💰 Saldo actual: *$${currentBalance.toFixed(2)} USD*`,
       evoInstance
     )
 

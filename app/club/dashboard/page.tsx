@@ -59,10 +59,11 @@ export default function ReceptionDashboard() {
     waUrl: '',
   })
 
-  // Modal de aprobación de Retail con detalle de producto
+  // Modal de aprobación de Retail con detalle de producto y cashback directo
   const [retailModal, setRetailModal] = useState<{ open: boolean; paymentId: string; customerName: string } | null>(null)
   const [retailAmount, setRetailAmount] = useState('')
   const [retailProduct, setRetailProduct] = useState('')
+  const [retailCashback, setRetailCashback] = useState('1.00')
 
   // Estado para el modal de canje de "Pase de un Amigo" en mostrador
   const [friendPassModal, setFriendPassModal] = useState(false)
@@ -191,7 +192,7 @@ export default function ReceptionDashboard() {
   }, [referralQuery, referralSearchPaymentId])
 
   const handleApprove = async (id: string, type: string, currentAmount: number) => {
-    // Para compras en Tienda/Barra, mostrar modal con producto + monto
+    // Para compras en Tienda/Barra, mostrar modal con producto + monto + cashback
     if (type === 'RETAIL') {
       const item = payments.find(p => p.id === id)
       setRetailModal({
@@ -201,6 +202,7 @@ export default function ReceptionDashboard() {
       })
       setRetailAmount(currentAmount > 0 ? String(currentAmount) : '')
       setRetailProduct('')
+      setRetailCashback('1.00')
       return
     }
 
@@ -234,12 +236,14 @@ export default function ReceptionDashboard() {
       alert('Ingresa un monto válido mayor a $0.')
       return
     }
+    const cashbackFixed = parseFloat(retailCashback) || 0
     try {
       setLoading(true)
       await axios.post('/api/club/payments', {
         paymentId: retailModal.paymentId,
         action: 'APPROVE',
         finalAmount: amount,
+        cashbackAmt: cashbackFixed,
         productDescription: retailProduct.trim() || null,
       })
       setRetailModal(null)
@@ -1177,27 +1181,52 @@ export default function ReceptionDashboard() {
             </div>
 
             <div className="space-y-4">
-              {/* Monto */}
-              <div>
-                <label className="text-xs font-bold uppercase text-zinc-400 tracking-wider block mb-2">
-                  Monto Total de la Compra (USD) *
-                </label>
-                <div className="relative">
-                  <span
-                    className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-lg"
-                    style={{ color: 'var(--color-primary, #00F5D4)' }}
-                  >
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={retailAmount}
-                    onChange={(e) => setRetailAmount(e.target.value)}
-                    className="w-full pl-9 pr-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-white text-lg font-bold focus:outline-none transition-colors"
-                  />
+              {/* Monto y Cashback */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-wider block mb-2">
+                    Monto Venta (USD) *
+                  </label>
+                  <div className="relative">
+                    <span
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-base"
+                      style={{ color: 'var(--color-primary, #00F5D4)' }}
+                    >
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={retailAmount}
+                      onChange={(e) => setRetailAmount(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-white text-base font-bold focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-wider block mb-2">
+                    Cashback Vuelto ($)
+                  </label>
+                  <div className="relative">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-base text-green-400"
+                    >
+                      +$
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={retailCashback}
+                      onChange={(e) => setRetailCashback(e.target.value)}
+                      title="Monto exacto en dólares que se acreditará a la billetera del socio"
+                      className="w-full pl-9 pr-3 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-white text-base font-bold focus:outline-none transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1211,7 +1240,7 @@ export default function ReceptionDashboard() {
                   placeholder="Ej: Proteína Whey 1kg, Creatina, Batido energético..."
                   value={retailProduct}
                   onChange={(e) => setRetailProduct(e.target.value)}
-                  className="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-white text-sm focus:outline-none transition-colors placeholder-zinc-500"
+                  className="w-full px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-white text-sm focus:outline-none transition-colors placeholder-zinc-500"
                   maxLength={150}
                 />
                 <span className="text-[11px] text-zinc-500 mt-1 block">
@@ -1219,7 +1248,7 @@ export default function ReceptionDashboard() {
                 </span>
               </div>
 
-              {/* Preview del Cashback */}
+              {/* Resumen del Cashback */}
               {retailAmount && !isNaN(parseFloat(retailAmount)) && parseFloat(retailAmount) > 0 && (
                 <div
                   className="p-3 rounded-xl border flex items-center justify-between"
@@ -1228,9 +1257,9 @@ export default function ReceptionDashboard() {
                     borderColor: 'color-mix(in srgb, var(--color-primary, #00F5D4) 30%, transparent)'
                   }}
                 >
-                  <span className="text-xs text-zinc-300">Cashback que recibirá el socio:</span>
-                  <span className="font-black" style={{ color: 'var(--color-primary, #00F5D4)' }}>
-                    +${((parseFloat(retailAmount) * (tenantConfig?.storeReferralCommPct || 5)) / 100).toFixed(2)} USD
+                  <span className="text-xs text-zinc-300">Acreditar a billetera del socio:</span>
+                  <span className="font-black text-sm" style={{ color: 'var(--color-primary, #00F5D4)' }}>
+                    +${(parseFloat(retailCashback) || 0).toFixed(2)} USD
                   </span>
                 </div>
               )}
