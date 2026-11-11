@@ -22,6 +22,8 @@ export async function POST(req: Request) {
     }
 
     const phone = remoteJid.replace('@s.whatsapp.net', '').replace(/[^0-9]/g, '')
+    // Número de pruebas / desarrollo sin restricciones de antispam o cooldown
+    const isTestPhone = phone.endsWith('983776219') || phone === '593983776219'
     const rawText = (
       message.message?.conversation ||
       message.message?.extendedTextMessage?.text ||
@@ -151,7 +153,9 @@ export async function POST(req: Request) {
     })
 
     if (pendingCoachSelection && /^\d+$/.test(rawText)) {
-      const branchIdInToken = pendingCoachSelection.token.split('|BRANCH:')[1] || null
+      const parts = pendingCoachSelection.token.split('|')
+      const branchPart = parts.find((p) => p.startsWith('BRANCH:'))
+      const branchIdInToken = branchPart ? branchPart.replace('BRANCH:', '') || null : null
       const whereCoaches: any = { tenantId: tenant.id, isActive: true }
       if (branchIdInToken) {
         whereCoaches.branchId = branchIdInToken
@@ -159,23 +163,25 @@ export async function POST(req: Request) {
 
       const coaches = await prisma.staff.findMany({
         where: whereCoaches,
-        orderBy: { name: 'asc' },
+        orderBy: [{ role: 'asc' }, { name: 'asc' }],
       })
 
       const index = parseInt(rawText) - 1
       if (index >= 0 && index < coaches.length) {
         const chosenCoach = coaches[index]
 
-        // Restricción antispam: 1 calificación al mismo coach cada 7 días
+        // Restricción antispam: 1 calificación al mismo coach cada 7 días (excepto teléfono de prueba)
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-        const recentEval = await prisma.evaluation.findFirst({
-          where: {
-            tenantId: tenant.id,
-            customerId: customer.id,
-            staffId: chosenCoach.id,
-            createdAt: { gt: sevenDaysAgo },
-          },
-        })
+        const recentEval = isTestPhone
+          ? null
+          : await prisma.evaluation.findFirst({
+              where: {
+                tenantId: tenant.id,
+                customerId: customer.id,
+                staffId: chosenCoach.id,
+                createdAt: { gt: sevenDaysAgo },
+              },
+            })
 
         if (recentEval) {
           await prisma.qrToken.deleteMany({
@@ -189,16 +195,24 @@ export async function POST(req: Request) {
           return NextResponse.json({ status: 'rate_limited' })
         }
 
+        // Limpiar tokens previos de selección y de estrellas pendientes para este usuario
         await prisma.qrToken.deleteMany({
-          where: { tenantId: tenant.id, token: { startsWith: `EVAL_COACH_SEL_${phone}` } },
+          where: {
+            tenantId: tenant.id,
+            OR: [
+              { token: { startsWith: `EVAL_COACH_SEL_${phone}` } },
+              { token: { startsWith: `EVAL_STARS_${phone}` } },
+            ],
+          },
         })
 
-        // Guardar sesión esperando estrellas
+        // Guardar sesión esperando estrellas (con sufijo aleatorio para evitar colisión de unique constraint)
+        const starsToken = `EVAL_STARS_${phone}|COACH:${chosenCoach.id}|BRANCH:${branchIdInToken || ''}|${Date.now()}`
         await prisma.qrToken.create({
           data: {
             tenantId: tenant.id,
             type: 'EVAL_WAITING_STARS',
-            token: `EVAL_STARS_${phone}|COACH:${chosenCoach.id}|BRANCH:${branchIdInToken || ''}`,
+            token: starsToken,
             expiresAt: new Date(Date.now() + 10 * 60 * 1000),
           },
         })
@@ -264,11 +278,14 @@ export async function POST(req: Request) {
           return NextResponse.json({ status: 'evaluation_5_stars_completed' })
         } else {
           if (createdEvalId) {
+            await prisma.qrToken.deleteMany({
+              where: { tenantId: tenant.id, token: { startsWith: `EVAL_COMMENT_${phone}` } },
+            })
             await prisma.qrToken.create({
               data: {
                 tenantId: tenant.id,
                 type: 'EVAL_WAITING_COMMENT',
-                token: `EVAL_COMMENT_${phone}|EVAL:${createdEvalId}`,
+                token: `EVAL_COMMENT_${phone}|EVAL:${createdEvalId}|${Date.now()}`,
                 expiresAt: new Date(Date.now() + 15 * 60 * 1000),
               },
             })
@@ -297,7 +314,9 @@ export async function POST(req: Request) {
     })
 
     if (pendingComment && rawText.trim().length > 0) {
-      const evalId = pendingComment.token.split('|EVAL:')[1] || ''
+      const parts = pendingComment.token.split('|')
+      const evalPart = parts.find((p) => p.startsWith('EVAL:'))
+      const evalId = evalPart ? evalPart.replace('EVAL:', '') : ''
       if (evalId) {
         await prisma.evaluation.update({
           where: { id: evalId },
@@ -412,6 +431,22 @@ export async function POST(req: Request) {
         return NextResponse.json({ status: 'qr_expired_or_invalid' })
       }
     }
+
+    // Limpieza proactiva de cualquier flujo anterior pendiente del usuario
+    // Si dejó un QR a medias (ej: seleccionando sede, coach o estrellas) y vuelve a escanear,
+    // se resetean sus sesiones anteriores para iniciar fresco.
+    await prisma.qrToken.deleteMany({
+      where: {
+        tenantId: tenant.id,
+        OR: [
+          { token: { startsWith: `BRANCH_SEL_${phone}|` } },
+          { token: { startsWith: `EVAL_COACH_SEL_${phone}` } },
+          { token: { startsWith: `EVAL_STARS_${phone}` } },
+          { token: { startsWith: `EVAL_COMMENT_${phone}` } },
+          { token: { startsWith: `PLAN_SEL_${phone}` } },
+        ],
+      },
+    })
 
     // Determinar la acción base: EVAL, MEM o RET
     let actionType = 'MEM'
@@ -538,7 +573,7 @@ async function dispatchBranchFlow(
       data: {
         tenantId: tenant.id,
         type: 'EVAL_SELECT_COACH',
-        token: `EVAL_COACH_SEL_${phone}|BRANCH:${branchId || ''}`,
+        token: `EVAL_COACH_SEL_${phone}|BRANCH:${branchId || ''}|${Date.now()}`,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       },
     })
