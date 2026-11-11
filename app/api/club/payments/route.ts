@@ -134,31 +134,40 @@ export async function POST(req: Request) {
         })
       }
 
-      // 3. Acreditar Cashback a la Wallet del socio pagador
-      const newBalance = parseFloat((Number(wallet.balance) + cashbackAmt).toFixed(2))
-      const updatedWallet = await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: newBalance },
-      })
+      // 3. Regla Exclusiva: Si viene por REFERIDO, el cashback/beneficio se le entrega ÚNICAMENTE al referente
+      // Si NO tiene referido, el cashback es para el propio socio pagador.
+      const hasReferrer = Boolean(referrerCustomer && referrerCustomer.id !== payment.customerId)
+      let actualPayerCashback = hasReferrer ? 0 : cashbackAmt
+      let newBalance = Number(wallet.balance)
 
-      // 4. Registrar en auditoría de transacciones
-      await tx.walletTransaction.create({
-        data: {
-          tenantId: payment.tenantId,
-          walletId: wallet.id,
-          type: 'CASHBACK_EARNED',
-          amount: cashbackAmt,
-          description: `Cashback +$${cashbackAmt.toFixed(2)} USD por ${payment.type === 'MEMBERSHIP' ? 'Cuota' : `Barra/Retail${productDescription ? ` (${productDescription})` : ''}`} - $${amount.toFixed(2)}`,
-          referenceId: payment.id,
-        },
-      })
+      if (actualPayerCashback > 0) {
+        newBalance = parseFloat((Number(wallet.balance) + actualPayerCashback).toFixed(2))
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: { balance: newBalance },
+        })
 
-      // 5. Si hay socio referente, acreditar Bono de Referido a su wallet
+        // 4. Registrar en auditoría de transacciones del pagador
+        await tx.walletTransaction.create({
+          data: {
+            tenantId: payment.tenantId,
+            walletId: wallet.id,
+            type: 'CASHBACK_EARNED',
+            amount: actualPayerCashback,
+            description: `Cashback +$${actualPayerCashback.toFixed(2)} USD por ${payment.type === 'MEMBERSHIP' ? 'Cuota' : `Barra/Retail${productDescription ? ` (${productDescription})` : ''}`} - $${amount.toFixed(2)}`,
+            referenceId: payment.id,
+          },
+        })
+      }
+
+      // 5. Si hay socio referente, acreditar el beneficio a su wallet (Bono del plan / cashback)
       let referrerBonusAmt = 0
       let referrerNewBalance = 0
-      if (referrerCustomer && referrerCustomer.id !== payment.customerId) {
-        const refCommPct = Number(payment.tenant.referralCommPct || 10.0)
-        referrerBonusAmt = parseFloat(((amount * refCommPct) / 100).toFixed(2))
+      if (hasReferrer) {
+        // El beneficio asignado al pago (cashbackAmt del plan o monto fijo) va directo al referente
+        referrerBonusAmt = cashbackAmt > 0
+          ? cashbackAmt
+          : parseFloat(((amount * Number(payment.tenant.referralCommPct || 10.0)) / 100).toFixed(2))
 
         let refWallet = await tx.wallet.findUnique({
           where: { customerId: referrerCustomer.id },
@@ -181,7 +190,7 @@ export async function POST(req: Request) {
             walletId: refWallet.id,
             type: 'CASHBACK_EARNED',
             amount: referrerBonusAmt,
-            description: `🎁 Bono de Referido por inscripción de ${payment.customer.name} - $${amount.toFixed(2)} (${refCommPct}%)`,
+            description: `🎁 Bono de Referido por inscripción de ${payment.customer.name} - Plan $${amount.toFixed(2)}`,
             referenceId: payment.id,
           },
         })
@@ -208,7 +217,7 @@ export async function POST(req: Request) {
         }
       }
 
-      return { updatedPayment, newBalance, friendPassCodes, referrerBonusAmt, referrerNewBalance }
+      return { updatedPayment, newBalance, friendPassCodes, referrerBonusAmt, referrerNewBalance, actualPayerCashback }
     }, {
       maxWait: 15000, // Tiempo máximo de espera para conseguir conexión del pool (15s)
       timeout: 25000, // Tiempo máximo de ejecución de la transacción completa (25s)
@@ -228,9 +237,15 @@ export async function POST(req: Request) {
     }
 
     // WhatsApp al cliente pagador
+    const payerCashbackLine = result.actualPayerCashback > 0
+      ? `\n🎁 Cashback acreditado: *+$${result.actualPayerCashback.toFixed(2)} USD*`
+      : referrerCustomer
+      ? `\n🤝 Plan activado por recomendación de: *${referrerCustomer.name}*`
+      : ''
+
     await sendWhatsAppMessage(
       payment.customer.phone,
-      `✅ *¡Pago Aprobado en Caja!*\n\n🏋️ *${payment.tenant.name}*\n\n💵 ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}: *$${amount.toFixed(2)} USD*${prodLine}\n🎁 Cashback acreditado: *+$${cashbackAmt.toFixed(2)} USD*\n💰 Tu nuevo saldo en Monedero: *$${result.newBalance.toFixed(2)} USD*${passesSection}\n\n¡Gracias por tu visita! Puedes canjear tu saldo acumulado en recepción. 💪`,
+      `✅ *¡Pago Aprobado en Caja!*\n\n🏋️ *${payment.tenant.name}*\n\n💵 ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}: *$${amount.toFixed(2)} USD*${prodLine}${payerCashbackLine}\n💰 Tu saldo disponible en Monedero: *$${result.newBalance.toFixed(2)} USD*${passesSection}\n\n¡Gracias por tu visita! Puedes canjear tu saldo acumulado en recepción. 💪`,
       instanceName
     )
 

@@ -10,7 +10,9 @@ import {
   Filter,
   MessageSquare,
   Calendar,
-  X
+  X,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react'
 import axios from 'axios'
 import { coach_1_jpg, coach_2_jpg, coach_3_jpg } from '@/lib/brandingImages'
@@ -54,6 +56,139 @@ export default function CoachesRanking() {
     ? evaluations.filter((e) => e.coachId === activeCoachModal.id)
     : []
 
+  const roleLabels: Record<string, string> = {
+    RECEPCION: 'Recepción',
+    ENTRENADOR: 'Entrenador',
+    TRAINER: 'Entrenador',
+    LIMPIEZA: 'Limpieza',
+    GERENCIA: 'Gerencia',
+    MANAGER: 'Gerencia',
+  }
+
+  // Exportar reporte organizado en formato Excel (.xls)
+  // Divide visualmente las reseñas agrupadas por cada colaborador con su propio resumen y promedio.
+  const handleExportExcel = (specificCoachId?: string) => {
+    try {
+      const targetEvaluations = specificCoachId
+        ? evaluations.filter((e) => e.coachId === specificCoachId)
+        : evaluations
+
+      if (targetEvaluations.length === 0) {
+        alert('No hay evaluaciones para exportar.')
+        return
+      }
+
+      const branchName = theme.branchName || 'Sede Principal'
+      const coachMap = new Map(coaches.map((c) => [c.id, c]))
+
+      // Agrupar las evaluaciones por cada colaborador para que aparezcan en secciones divididas
+      const groupedByCoach: { [key: string]: any[] } = {}
+      targetEvaluations.forEach((item) => {
+        const key = item.coachId || 'unknown'
+        if (!groupedByCoach[key]) groupedByCoach[key] = []
+        groupedByCoach[key].push(item)
+      })
+
+      let sectionsHtml = ''
+      Object.keys(groupedByCoach).forEach((coachId) => {
+        const coachItems = groupedByCoach[coachId]
+        const coachObj = coachMap.get(coachId)
+        const coachName = coachObj?.name || coachItems[0]?.coachName || 'Colaborador'
+        const rol = coachObj?.role ? (roleLabels[coachObj.role] || coachObj.role) : 'Personal'
+        const total = coachItems.length
+        const avg = (coachItems.reduce((acc, c) => acc + c.stars, 0) / total).toFixed(2)
+
+        let rowsForCoach = ''
+        coachItems.forEach((item) => {
+          const dateObj = new Date(item.createdAt)
+          const fecha = dateObj.toLocaleDateString('es-EC')
+          const hora = dateObj.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+          const starsText = `${item.stars} de 5 ★`
+          const comment = item.comment || (item.stars === 5 ? '5 Estrellas (Derivado a Google Reviews)' : 'Sin comentario')
+
+          rowsForCoach += `
+            <tr>
+              <td style="border: 1px solid #d4d4d8; padding: 7px 10px; font-family: Calibri, sans-serif; font-size: 11pt;">${fecha}</td>
+              <td style="border: 1px solid #d4d4d8; padding: 7px 10px; font-family: Calibri, sans-serif; font-size: 11pt;">${hora}</td>
+              <td style="border: 1px solid #d4d4d8; padding: 7px 10px; font-family: Calibri, sans-serif; font-size: 11pt; font-weight: bold; color: #b45309; text-align: center;">${starsText}</td>
+              <td style="border: 1px solid #d4d4d8; padding: 7px 10px; font-family: Calibri, sans-serif; font-size: 11pt;">${comment}</td>
+              <td style="border: 1px solid #d4d4d8; padding: 7px 10px; font-family: Calibri, sans-serif; font-size: 11pt; font-weight: bold;">${item.customerName || 'Socio Anónimo'}</td>
+              <td style="border: 1px solid #d4d4d8; padding: 7px 10px; font-family: Calibri, sans-serif; font-size: 11pt; mso-number-format:'\\@';">${item.customerPhone ? `+${item.customerPhone}` : ''}</td>
+            </tr>`
+        })
+
+        sectionsHtml += `
+          <!-- BLOQUE DIVIDIDO POR COLABORADOR -->
+          <table style="border-collapse: collapse; width: 100%; margin-bottom: 25px;">
+            <thead>
+              <tr style="background-color: #0f172a; color: #ffffff;">
+                <th colspan="6" style="padding: 12px 14px; font-family: Calibri, sans-serif; font-size: 13pt; text-align: left; font-weight: bold; border: 1px solid #0f172a;">
+                  👤 ${coachName.toUpperCase()} &nbsp;·&nbsp; <span style="font-size: 11pt; font-weight: normal; color: #38bdf8;">${rol}</span>
+                  &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+                  ⭐ Promedio: <span style="color: #fbbf24;">${avg} / 5.00</span> &nbsp;(${total} reseña${total > 1 ? 's' : ''})
+                </th>
+              </tr>
+              <tr style="background-color: #1e293b; color: #e2e8f0;">
+                <th style="border: 1px solid #334155; padding: 8px 10px; font-family: Calibri, sans-serif; font-size: 10.5pt; text-align: left; width: 12%;">Fecha</th>
+                <th style="border: 1px solid #334155; padding: 8px 10px; font-family: Calibri, sans-serif; font-size: 10.5pt; text-align: left; width: 12%;">Hora</th>
+                <th style="border: 1px solid #334155; padding: 8px 10px; font-family: Calibri, sans-serif; font-size: 10.5pt; text-align: center; width: 15%;">Calificación</th>
+                <th style="border: 1px solid #334155; padding: 8px 10px; font-family: Calibri, sans-serif; font-size: 10.5pt; text-align: left; width: 35%;">Opinión / Feedback del Socio</th>
+                <th style="border: 1px solid #334155; padding: 8px 10px; font-family: Calibri, sans-serif; font-size: 10.5pt; text-align: left; width: 14%;">Socio</th>
+                <th style="border: 1px solid #334155; padding: 8px 10px; font-family: Calibri, sans-serif; font-size: 10.5pt; text-align: left; width: 12%;">WhatsApp</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsForCoach}
+            </tbody>
+          </table>
+          <br/>`
+      })
+
+      const htmlDocument = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Evaluaciones ${branchName}</x:Name>
+                  <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+        </head>
+        <body style="padding: 15px; background-color: #ffffff;">
+          <h2 style="font-family: Calibri, sans-serif; color: #0f172a; margin-bottom: 2px;">REPORTE DE EVALUACIONES POR COLABORADOR</h2>
+          <p style="font-family: Calibri, sans-serif; color: #475569; font-size: 11pt; margin-top: 0; margin-bottom: 20px;">
+            Sede: <strong>${branchName}</strong> &bull; Total colaboradores: <strong>${Object.keys(groupedByCoach).length}</strong> &bull; Total opiniones: <strong>${targetEvaluations.length}</strong> &bull; Fecha: ${new Date().toLocaleString('es-EC')}
+          </p>
+          ${sectionsHtml}
+        </body>
+        </html>`
+
+      const blob = new Blob([htmlDocument], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+
+      const filenameSuffix = specificCoachId
+        ? `_${(coachMap.get(specificCoachId)?.name || 'colaborador').replace(/\s+/g, '_')}`
+        : '_Por_Colaborador'
+
+      link.setAttribute('href', url)
+      link.setAttribute('download', `Reseñas_${branchName.replace(/\s+/g, '_')}${filenameSuffix}.xls`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      alert('Error descargando reporte: ' + err.message)
+    }
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -67,15 +202,32 @@ export default function CoachesRanking() {
           </p>
         </div>
 
-        <button
-          onClick={fetchData}
-          className="p-2.5 rounded-xl bg-[var(--bg-card,#05101C)] border border-[var(--border-card,rgba(0,245,212,0.15))] transition-all text-zinc-400 hover:text-white self-start sm:self-auto"
-        >
-          <RefreshCw
-            className="w-4 h-4"
-            style={{ color: loading ? 'var(--color-primary, #00F5D4)' : undefined }}
-          />
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => handleExportExcel()}
+            className="px-4 py-2.5 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all shadow-md hover:scale-105"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-primary, #00F5D4) 15%, transparent)',
+              borderColor: 'color-mix(in srgb, var(--color-primary, #00F5D4) 30%, transparent)',
+              color: 'var(--color-primary, #00F5D4)',
+            }}
+            title="Descargar reporte en Excel (.xls) perfectamente ordenado en columnas y con colores"
+          >
+            <Download className="w-4 h-4" />
+            <span>Descargar Reporte Excel</span>
+          </button>
+
+          <button
+            onClick={fetchData}
+            className="p-2.5 rounded-xl bg-[var(--bg-card,#05101C)] border border-[var(--border-card,rgba(0,245,212,0.15))] transition-all text-zinc-400 hover:text-white"
+            title="Actualizar datos"
+          >
+            <RefreshCw
+              className="w-4 h-4"
+              style={{ color: loading ? 'var(--color-primary, #00F5D4)' : undefined }}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Podio Olímpico - El 1º al centro, 2º izquierda, 3º derecha, resto abajo */}
@@ -424,8 +576,16 @@ export default function CoachesRanking() {
             </div>
 
             {/* Footer Modal */}
-            <div className="pt-4 border-t border-white/10 flex justify-between items-center text-xs text-zinc-500">
-              <span>Evaluación de Desempeño</span>
+            <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-zinc-500">
+              <button
+                type="button"
+                onClick={() => handleExportExcel(activeCoachModal.id)}
+                className="px-3.5 py-2 rounded-xl border flex items-center gap-2 font-bold text-white bg-white/5 hover:bg-white/10 transition-all"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Descargar Reseñas de {activeCoachModal.name} (Excel)</span>
+              </button>
+
               <button
                 onClick={() => {
                   setSelectedCoach(activeCoachModal.id)
@@ -472,7 +632,7 @@ function evaluacionesListRender(evaluations: any[]) {
                   backgroundColor: 'color-mix(in srgb, var(--color-primary, #00F5D4) 10%, transparent)'
                 }}
               >
-                Coach: {item.coachName}
+                Colaborador: {item.coachName}
               </span>
             </div>
 
