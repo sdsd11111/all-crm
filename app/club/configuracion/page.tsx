@@ -428,62 +428,97 @@ export default function ClubConfig() {
             </div>
 
             {/* Formulario para agregar nuevo plan */}
-            <form onSubmit={handleAddPlan} className="space-y-3 bg-zinc-900/60 p-4 rounded-xl border border-white/5">
-              <div className="text-xs font-bold text-zinc-400">Crear Nuevo Plan</div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <input
-                  type="text"
-                  placeholder="Ej: Mensualidad VIP"
-                  value={newPlanName}
-                  onChange={(e) => setNewPlanName(e.target.value)}
-                  className="px-3 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500"
-                />
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-xs text-zinc-400">$</span>
+            <form onSubmit={handleAddPlan} className="space-y-4 bg-zinc-900/60 p-4 rounded-xl border border-white/5">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Crear Nuevo Plan de Membresía</span>
+                <span className="text-[11px] text-zinc-400">Ingresa duración en meses o días</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                {/* Nombre del Plan */}
+                <div className="sm:col-span-4">
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    Nombre del Plan
+                  </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Precio USD"
-                    value={newPlanPrice}
-                    onChange={(e) => setNewPlanPrice(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500"
+                    type="text"
+                    required
+                    placeholder="Ej: Mensualidad VIP, Trimestral..."
+                    value={newPlanName}
+                    onChange={(e) => setNewPlanName(e.target.value)}
+                    className="w-full px-3 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500"
                   />
                 </div>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-2 text-xs text-zinc-400">+$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Cashback $"
-                    value={newPlanCashback}
-                    onChange={(e) => setNewPlanCashback(e.target.value)}
-                    title="Cashback fijo en dólares que recibe el socio"
-                    className="w-full pl-8 pr-2 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500"
-                  />
+
+                {/* Precio en USD */}
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    Precio ($ USD)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-xs text-zinc-400 font-bold">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      placeholder="0.00"
+                      value={newPlanPrice}
+                      onChange={(e) => setNewPlanPrice(e.target.value)}
+                      className="w-full pl-7 pr-3 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500 font-bold"
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={newPlanMonths}
-                    onChange={(e) => setNewPlanMonths(e.target.value)}
-                    className="w-full px-3 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none"
-                  >
-                    <option value="1">1 Mes (30 d)</option>
-                    <option value="2">2 Meses (60 d)</option>
-                    <option value="3">3 Meses (Trim)</option>
-                    <option value="6">6 Meses (Sem)</option>
-                    <option value="12">12 Meses (Anual)</option>
-                  </select>
-                  <button
-                    type="submit"
-                    disabled={addingPlan}
-                    className="px-3 py-2 text-black font-bold text-xs rounded-xl transition-all flex items-center gap-1 shrink-0"
-                    style={{ backgroundColor: 'var(--color-primary, #00F5D4)' }}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{addingPlan ? '...' : 'Añadir'}</span>
-                  </button>
+
+                {/* Cashback en USD */}
+                <div className="sm:col-span-3">
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    Cashback Retorno ($)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-2 text-xs text-emerald-400 font-bold">+$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="2.00"
+                      value={newPlanCashback}
+                      onChange={(e) => setNewPlanCashback(e.target.value)}
+                      title="Monto fijo de cashback que gana el socio"
+                      className="w-full pl-8 pr-2 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none placeholder-zinc-500 font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Duración en Meses */}
+                <div className="sm:col-span-3">
+                  <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                    Duración (Meses)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 min-w-[70px]">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        required
+                        placeholder="1"
+                        value={newPlanMonths}
+                        onChange={(e) => setNewPlanMonths(e.target.value)}
+                        className="w-full pl-3 pr-2 py-2 bg-black border border-white/10 rounded-xl text-xs text-white focus:outline-none font-bold text-center"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={addingPlan}
+                      className="px-4 py-2 text-black font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1 shrink-0 shadow-md hover:scale-105 disabled:opacity-50"
+                      style={{ backgroundColor: 'var(--color-primary, #00F5D4)' }}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{addingPlan ? '...' : 'Añadir'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
@@ -516,48 +551,58 @@ export default function ClubConfig() {
                               <X className="w-4 h-4" />
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                            <input
-                              type="text"
-                              value={editPlanName}
-                              onChange={(e) => setEditPlanName(e.target.value)}
-                              className="px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
-                            />
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder="Precio $"
-                              value={editPlanPrice}
-                              onChange={(e) => setEditPlanPrice(e.target.value)}
-                              className="px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
-                            />
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder="Cashback $"
-                              value={editPlanCashback}
-                              onChange={(e) => setEditPlanCashback(e.target.value)}
-                              className="px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
-                            />
-                            <div className="flex items-center gap-2">
-                              <select
-                                value={editPlanMonths}
-                                onChange={(e) => setEditPlanMonths(e.target.value)}
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Nombre</label>
+                              <input
+                                type="text"
+                                value={editPlanName}
+                                onChange={(e) => setEditPlanName(e.target.value)}
                                 className="w-full px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none"
-                              >
-                                <option value="1">1 Mes (30 d)</option>
-                                <option value="2">2 Meses (60 d)</option>
-                                <option value="3">3 Meses (Trim)</option>
-                                <option value="6">6 Meses (Sem)</option>
-                                <option value="12">12 Meses (Anual)</option>
-                              </select>
-                              <button
-                                onClick={() => handleUpdatePlan(p.id)}
-                                disabled={updatingPlan}
-                                className="px-3 py-1.5 bg-green-500 hover:bg-green-400 text-black font-bold text-xs rounded-lg transition-colors flex items-center gap-1"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Precio USD</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="Precio $"
+                                value={editPlanPrice}
+                                onChange={(e) => setEditPlanPrice(e.target.value)}
+                                className="w-full px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none font-bold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Cashback $</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="Cashback $"
+                                value={editPlanCashback}
+                                onChange={(e) => setEditPlanCashback(e.target.value)}
+                                className="w-full px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none font-bold text-emerald-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Meses</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  value={editPlanMonths}
+                                  onChange={(e) => setEditPlanMonths(e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-black border border-white/10 rounded-lg text-xs text-white focus:outline-none font-bold"
+                                />
+                                <button
+                                  onClick={() => handleUpdatePlan(p.id)}
+                                  disabled={updatingPlan}
+                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-400 text-black font-bold text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0"
+                                  title="Guardar cambios del plan"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
