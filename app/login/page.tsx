@@ -154,9 +154,7 @@ export default function LoginPage() {
                             {!loading && <ArrowRight className="w-4 h-4" />}
                         </button>
 
-                        <p className="text-center text-[11px] text-zinc-500 font-medium">
-                            ALL-CRM SaaS v2.5 &bull; Acceso para Administradores de Gimnasio
-                        </p>
+
                     </form>
                 ) : (
                     /* Paso 2: Selección de Sucursal / Sede */
