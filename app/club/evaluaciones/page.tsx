@@ -233,69 +233,77 @@ export default function CoachesRanking() {
       {/* Podio Olímpico - El 1º al centro, 2º izquierda, 3º derecha, resto abajo */}
       {coaches.length > 0 && (
         <div className="space-y-4">
-          {/* Top 3: layout olímpico */}
-          <div className="grid grid-cols-3 gap-4 pt-2 items-end">
+          {/* Top 3: layout olímpico con tarjetas simétricas y fotos sin recortes extraños */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 items-end">
             {/* 2do lugar - izquierda */}
             {coaches[1] ? (
               <div
                 onClick={() => setActiveCoachModal(coaches[1])}
-                className="rounded-2xl bg-[var(--bg-card,#05101C)] border flex flex-col cursor-pointer hover:scale-[1.02] transition-all group shadow-lg overflow-hidden"
+                className="rounded-xl bg-[var(--bg-card,#05101C)] border flex flex-col cursor-pointer hover:border-slate-300 transition-all group shadow-lg overflow-hidden md:order-1"
                 style={{ borderColor: 'rgba(226,232,240,0.3)' }}
               >
-                <div className="relative h-32 w-full overflow-hidden bg-black/40">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-zinc-950 flex items-center justify-center">
                   {coaches[1].avatarUrl ? (
-                    <img src={coaches[1].avatarUrl} alt={coaches[1].name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img
+                      src={coaches[1].avatarUrl}
+                      alt={coaches[1].name}
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                       <span className="text-4xl font-black text-zinc-700">{coaches[1].name.charAt(0)}</span>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-card,#05101C)] via-[var(--bg-card,#05101C)]/50 to-transparent" />
-                  <div className="absolute top-2 left-2">
-                    <span className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shadow-md bg-[#E2E8F0] text-black">#2</span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-card,#05101C)] via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute top-2 left-2 z-10">
+                    <span className="w-8 h-8 rounded-md flex items-center justify-center font-black text-xs shadow-md bg-[#E2E8F0] text-black">#2</span>
                   </div>
-                  <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold backdrop-blur-md" style={{ color: 'var(--accent-gold,#F59E0B)', backgroundColor: 'color-mix(in srgb, var(--accent-gold,#F59E0B) 20%, black)', borderColor: 'color-mix(in srgb, var(--accent-gold,#F59E0B) 40%, transparent)' }}>
-                    <Star className="w-3 h-3" style={{ fill: 'var(--accent-gold,#F59E0B)' }} />
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-bold backdrop-blur-md" style={{ color: 'var(--accent-gold,#F59E0B)', backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(245,158,11,0.4)' }}>
+                    <Star className="w-3.5 h-3.5" style={{ fill: 'var(--accent-gold,#F59E0B)' }} />
                     {coaches[1].stars.toFixed(2)}
                   </div>
                 </div>
-                <div className="p-3 pt-0">
+                <div className="p-3.5 pt-1">
                   <h3 className="text-sm font-black text-white truncate">{coaches[1].name}</h3>
-                  <p className="text-[11px] text-zinc-500">{coaches[1].totalReviews} reseña(s)</p>
+                  <p className="text-[11px] text-zinc-400">{coaches[1].totalReviews} reseña(s)</p>
                 </div>
               </div>
-            ) : <div />}
+            ) : <div className="hidden md:block md:order-1" />}
 
-            {/* 1er lugar - centro (más grande) */}
+            {/* 1er lugar - centro (destacado) */}
             {coaches[0] && (
               <div
                 onClick={() => setActiveCoachModal(coaches[0])}
-                className="rounded-2xl bg-[var(--bg-card,#05101C)] border flex flex-col cursor-pointer hover:scale-[1.02] transition-all group shadow-2xl overflow-hidden"
+                className="rounded-xl bg-[var(--bg-card,#05101C)] border flex flex-col cursor-pointer hover:border-amber-400 transition-all group shadow-2xl overflow-hidden md:order-2"
                 style={{ borderColor: 'var(--accent-gold,#F59E0B)', boxShadow: '0 10px 30px -5px color-mix(in srgb, var(--accent-gold,#F59E0B) 30%, transparent)' }}
               >
-                <div className="relative h-48 w-full overflow-hidden bg-black/40">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-zinc-950 flex items-center justify-center">
                   {coaches[0].avatarUrl ? (
-                    <img src={coaches[0].avatarUrl} alt={coaches[0].name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img
+                      src={coaches[0].avatarUrl}
+                      alt={coaches[0].name}
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                       <span className="text-6xl font-black text-zinc-700">{coaches[0].name.charAt(0)}</span>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-card,#05101C)] via-[var(--bg-card,#05101C)]/50 to-transparent" />
-                  <div className="absolute top-3 left-3">
-                    <span className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shadow-lg" style={{ backgroundColor: 'var(--accent-gold,#F59E0B)', color: '#000' }}>🏆</span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-card,#05101C)] via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute top-2.5 left-2.5 z-10">
+                    <span className="w-9 h-9 rounded-md flex items-center justify-center font-black text-sm shadow-lg" style={{ backgroundColor: 'var(--accent-gold,#F59E0B)', color: '#000' }}>🏆</span>
                   </div>
-                  <div className="absolute top-3 right-3 flex items-center gap-1 px-3 py-1 rounded-full border text-xs font-bold backdrop-blur-md" style={{ color: 'var(--accent-gold,#F59E0B)', backgroundColor: 'color-mix(in srgb, var(--accent-gold,#F59E0B) 20%, black)', borderColor: 'color-mix(in srgb, var(--accent-gold,#F59E0B) 40%, transparent)' }}>
+                  <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-3 py-1 rounded-md border text-xs font-bold backdrop-blur-md" style={{ color: 'var(--accent-gold,#F59E0B)', backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(245,158,11,0.5)' }}>
                     <Star className="w-3.5 h-3.5" style={{ fill: 'var(--accent-gold,#F59E0B)' }} />
                     {coaches[0].stars.toFixed(2)}
                   </div>
                 </div>
-                <div className="p-4 pt-0">
-                  <span className="text-[10px] uppercase font-bold tracking-widest block" style={{ color: 'var(--accent-gold,#F59E0B)' }}>Mejor Entrenador</span>
-                  <h3 className="text-lg font-black text-white truncate">{coaches[0].name}</h3>
-                  <p className="text-xs text-zinc-400">{coaches[0].totalReviews} reseña(s) · #{1} del Ranking</p>
+                <div className="p-4 pt-1">
+                  <span className="text-[10px] uppercase font-bold tracking-widest block" style={{ color: 'var(--accent-gold,#F59E0B)' }}>Mejor Calificado</span>
+                  <h3 className="text-base font-black text-white truncate">{coaches[0].name}</h3>
+                  <p className="text-xs text-zinc-400">{coaches[0].totalReviews} reseña(s) · #1 del Ranking</p>
                   <div className="mt-2 w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${(coaches[0].stars / 5) * 100}%`, backgroundColor: 'var(--accent-gold,#F59E0B)' }} />
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, (coaches[0].stars / 5) * 100))}%`, backgroundColor: 'var(--accent-gold,#F59E0B)' }} />
                   </div>
                 </div>
               </div>
@@ -305,32 +313,36 @@ export default function CoachesRanking() {
             {coaches[2] ? (
               <div
                 onClick={() => setActiveCoachModal(coaches[2])}
-                className="rounded-2xl bg-[var(--bg-card,#05101C)] border flex flex-col cursor-pointer hover:scale-[1.02] transition-all group shadow-lg overflow-hidden"
+                className="rounded-xl bg-[var(--bg-card,#05101C)] border flex flex-col cursor-pointer hover:border-slate-400 transition-all group shadow-lg overflow-hidden md:order-3"
                 style={{ borderColor: 'rgba(100,116,139,0.4)' }}
               >
-                <div className="relative h-32 w-full overflow-hidden bg-black/40">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-zinc-950 flex items-center justify-center">
                   {coaches[2].avatarUrl ? (
-                    <img src={coaches[2].avatarUrl} alt={coaches[2].name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img
+                      src={coaches[2].avatarUrl}
+                      alt={coaches[2].name}
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                       <span className="text-4xl font-black text-zinc-700">{coaches[2].name.charAt(0)}</span>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-card,#05101C)] via-[var(--bg-card,#05101C)]/50 to-transparent" />
-                  <div className="absolute top-2 left-2">
-                    <span className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shadow-md bg-[#64748B] text-white">#3</span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-card,#05101C)] via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute top-2 left-2 z-10">
+                    <span className="w-8 h-8 rounded-md flex items-center justify-center font-black text-xs shadow-md bg-[#64748B] text-white">#3</span>
                   </div>
-                  <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold backdrop-blur-md" style={{ color: 'var(--accent-gold,#F59E0B)', backgroundColor: 'color-mix(in srgb, var(--accent-gold,#F59E0B) 20%, black)', borderColor: 'color-mix(in srgb, var(--accent-gold,#F59E0B) 40%, transparent)' }}>
-                    <Star className="w-3 h-3" style={{ fill: 'var(--accent-gold,#F59E0B)' }} />
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-bold backdrop-blur-md" style={{ color: 'var(--accent-gold,#F59E0B)', backgroundColor: 'rgba(0,0,0,0.7)', borderColor: 'rgba(245,158,11,0.4)' }}>
+                    <Star className="w-3.5 h-3.5" style={{ fill: 'var(--accent-gold,#F59E0B)' }} />
                     {coaches[2].stars.toFixed(2)}
                   </div>
                 </div>
-                <div className="p-3 pt-0">
+                <div className="p-3.5 pt-1">
                   <h3 className="text-sm font-black text-white truncate">{coaches[2].name}</h3>
-                  <p className="text-[11px] text-zinc-500">{coaches[2].totalReviews} reseña(s)</p>
+                  <p className="text-[11px] text-zinc-400">{coaches[2].totalReviews} reseña(s)</p>
                 </div>
               </div>
-            ) : <div />}
+            ) : <div className="hidden md:block md:order-3" />}
           </div>
 
           {/* Resto de entrenadores (4+) en cuadrícula táctica */}
