@@ -51,7 +51,7 @@ export async function GET(req: Request) {
       const avgStars =
         totalReviews > 0
           ? coach.evaluations.reduce((acc, curr) => acc + curr.stars, 0) / totalReviews
-          : 5.0
+          : 0.0
 
       return {
         id: coach.id,
@@ -62,7 +62,15 @@ export async function GET(req: Request) {
         totalReviews,
       }
     })
-    ranked.sort((a, b) => b.stars - a.stars)
+
+    // Ordenar: primero los que tienen más reseñas y mejor promedio de estrellas.
+    // Los que tienen 0 reseñas / 0 estrellas quedan estrictamente al último.
+    ranked.sort((a, b) => {
+      if (a.totalReviews === 0 && b.totalReviews > 0) return 1
+      if (b.totalReviews === 0 && a.totalReviews > 0) return -1
+      if (b.stars !== a.stars) return b.stars - a.stars
+      return b.totalReviews - a.totalReviews
+    })
 
     return NextResponse.json({
       coaches: ranked,

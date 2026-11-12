@@ -67,7 +67,7 @@ export default function ReceptionDashboard() {
 
   // Estado para el modal de canje de "Pase de un Amigo" en mostrador
   const [friendPassModal, setFriendPassModal] = useState(false)
-  const [passCodeInput, setPassCodeInput] = useState('')
+  const [passCodeInput, setPassCodeInput] = useState('AMIGO-')
   const [verifyingPass, setVerifyingPass] = useState(false)
   const [verifiedPass, setVerifiedPass] = useState<any>(null)
   const [passError, setPassError] = useState<string | null>(null)
@@ -338,7 +338,7 @@ export default function ReceptionDashboard() {
 
       setPassSuccess(res.data?.message || '¡Pase de amigo canjeado con éxito! Acceso autorizado.')
       setVerifiedPass(null)
-      setPassCodeInput('')
+      setPassCodeInput('AMIGO-')
       setFriendName('')
       setFriendPhone('')
     } catch (e: any) {
@@ -350,7 +350,7 @@ export default function ReceptionDashboard() {
 
   const resetPassModal = () => {
     setFriendPassModal(false)
-    setPassCodeInput('')
+    setPassCodeInput('AMIGO-')
     setVerifiedPass(null)
     setPassError(null)
     setPassSuccess(null)
@@ -1360,9 +1360,17 @@ export default function ReceptionDashboard() {
                   </label>
                   <input
                     type="text"
-                    placeholder="Ej: AMIGO-9X2Y"
+                    placeholder="AMIGO-XXXX"
                     value={passCodeInput}
-                    onChange={(e) => setPassCodeInput(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      let val = e.target.value.toUpperCase()
+                      if (!val.startsWith('AMIGO-')) {
+                        // Si el usuario borra o pega algo sin el prefijo, garantizar 'AMIGO-'
+                        const cleanSuffix = val.replace(/^AMIGO-?/i, '')
+                        val = `AMIGO-${cleanSuffix}`
+                      }
+                      setPassCodeInput(val)
+                    }}
                     className="w-full px-5 py-4 bg-zinc-900 border border-white/10 rounded-2xl text-white text-lg font-mono font-black tracking-widest focus:outline-none transition-colors uppercase placeholder-zinc-600"
                     autoFocus
                   />

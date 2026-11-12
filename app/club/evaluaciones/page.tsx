@@ -497,17 +497,30 @@ export default function CoachesRanking() {
             {/* Cabecera del Colaborador */}
             <div className="flex items-center gap-4 pb-6 border-b border-white/10">
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl text-black shadow-lg"
-                style={{ backgroundColor: 'var(--color-primary, #00F5D4)' }}
+                className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 border-2 shadow-lg flex items-center justify-center bg-zinc-900"
+                style={{ borderColor: 'var(--color-primary, #00F5D4)' }}
               >
-                {activeCoachModal.name.charAt(0)}
+                {activeCoachModal.avatarUrl ? (
+                  <img
+                    src={activeCoachModal.avatarUrl}
+                    alt={activeCoachModal.name}
+                    className="w-full h-full object-cover object-center"
+                  />
+                ) : (
+                  <span
+                    className="font-black text-2xl text-black flex items-center justify-center w-full h-full"
+                    style={{ backgroundColor: 'var(--color-primary, #00F5D4)' }}
+                  >
+                    {activeCoachModal.name.charAt(0)}
+                  </span>
+                )}
               </div>
               <div>
                 <span
                   className="text-[11px] uppercase font-bold tracking-widest block"
                   style={{ color: 'var(--color-primary, #00F5D4)' }}
                 >
-                  Perfil del Colaborador
+                  Perfil del Colaborador · {roleLabels[activeCoachModal.role] || activeCoachModal.role || 'Staff'}
                 </span>
                 <h3 className="text-2xl font-black text-white">{activeCoachModal.name}</h3>
                 <div className="flex items-center gap-3 mt-1">
