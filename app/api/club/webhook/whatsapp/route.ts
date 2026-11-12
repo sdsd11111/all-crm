@@ -112,8 +112,11 @@ export async function POST(req: Request) {
         customer.name = nameInput
 
         // Recuperar el flujo original que estaba pendiente
-        const pendingAction = pendingNameCapture.token.split('|ACTION:')[1] || ''
-        const pendingToken = pendingNameCapture.token.split('|TOKEN:')[1]?.split('|')[0] || ''
+        // El token se guarda como: NAME_${phone}|ACTION:${actionType}|TOKEN:${tokenExtracted}
+        const actionMatch = pendingNameCapture.token.match(/\|ACTION:([^|]+)/)
+        const tokenMatch = pendingNameCapture.token.match(/\|TOKEN:([^|]+)/)
+        const pendingAction = actionMatch ? actionMatch[1] : 'MEM'
+        const pendingToken = tokenMatch ? tokenMatch[1] : ''
 
         // Limpiar el token de captura de nombre
         await prisma.qrToken.deleteMany({
