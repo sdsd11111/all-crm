@@ -13,3 +13,25 @@ services:
       - PORT=3000
       - NODE_ENV=production
 
+  # Base de datos dedicada de Titanus (UTC, aislada del MySQL del host).
+  # Credenciales en .env.db (no versionado) en el servidor.
+  titanus-db:
+    image: mariadb:10.11
+    container_name: titanus-db
+    restart: unless-stopped
+    command: >
+      --default-time-zone=+00:00
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=100
+      --innodb-buffer-pool-size=256M
+    env_file:
+      - .env.db
+    volumes:
+      - titanus_db_data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3307:3306"
+
+volumes:
+  titanus_db_data:
+

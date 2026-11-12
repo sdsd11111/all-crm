@@ -25,9 +25,9 @@ git pull origin main
 
 & ssh -i $keyDst -o StrictHostKeyChecking=no $vpsHost $remoteGitCmd
 
-# 2. Asegurar archivo .env.local en el VPS
-Write-Host "`n[2/3] Sincronizando .env.local al VPS..." -ForegroundColor Yellow
-& scp -i $keyDst -o StrictHostKeyChecking=no "$PSScriptRoot\.env.local" "${vpsHost}:/root/all-crm/.env.local"
+# 2. Las variables de entorno viven SOLO en el servidor (/root/all-crm/.env.local).
+#    No se sincronizan desde local para no sobrescribir la conexión a la DB del VPS.
+Write-Host "`n[2/3] Usando .env.local existente en el VPS (no se sobrescribe)..." -ForegroundColor Yellow
 
 # 3. Levantar Docker
 Write-Host "`n[3/3] Reconstruyendo contenedor Docker all-crm-app..." -ForegroundColor Yellow
