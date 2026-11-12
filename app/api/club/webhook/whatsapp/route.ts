@@ -65,23 +65,18 @@ export async function POST(req: Request) {
       include: { wallets: { where: { tenantId: tenant.id } } },
     })
 
-    const senderName = message.pushName || `Socio ${tenant.name}`
+    // Si es cliente nuevo, lo creamos inicialmente con un marcador "Socio Titanus Gym"
+    // para saber explícitamente que AÚN NO ha proporcionado su nombre y apellido reales
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
           tenantId: tenant.id,
-          name: senderName,
+          name: `Socio ${tenant.name}`,
           phone,
           wallets: { create: { tenantId: tenant.id, balance: 0 } },
         },
         include: { wallets: true },
       })
-    } else if (customer.name.startsWith('Socio ') && message.pushName) {
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: { name: message.pushName },
-      })
-      customer.name = message.pushName
     }
 
     const currentBalance = customer.wallets?.[0] ? Number(customer.wallets[0].balance) : 0
