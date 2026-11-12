@@ -37,6 +37,7 @@ export default function ClubConfig() {
   const [wsStatus, setWsStatus] = useState<'connected' | 'disconnected' | 'loading'>('loading')
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [loadingQr, setLoadingQr] = useState(false)
+  const [disconnectingWs, setDisconnectingWs] = useState(false)
 
   // Gestión de Personal del Club (Staff)
   const [coaches, setCoaches] = useState<any[]>([])
@@ -95,6 +96,26 @@ export default function ClubConfig() {
       console.error(e)
     } finally {
       setLoadingQr(false)
+    }
+  }
+
+  const handleDisconnectWhatsApp = async () => {
+    if (!confirm('¿Estás seguro de desconectar la línea de WhatsApp? El bot dejará de responder mensajes hasta que vuelvas a vincularlo escaneando el código QR.')) {
+      return
+    }
+    setDisconnectingWs(true)
+    try {
+      await axios.post('/api/whatsapp/logout')
+      setWsStatus('disconnected')
+      setQrCode(null)
+      // Generar automáticamente el nuevo QR tras desconectar
+      const timestamp = new Date().getTime()
+      setQrCode(`/api/whatsapp/qr?t=${timestamp}`)
+    } catch (e: any) {
+      console.error('Error desconectando WhatsApp:', e)
+      alert('Error al desconectar: ' + (e.response?.data?.error || e.message))
+    } finally {
+      setDisconnectingWs(false)
     }
   }
 
@@ -736,14 +757,28 @@ export default function ClubConfig() {
             )}
 
             {wsStatus === 'connected' && (
-              <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 space-y-2">
-                <span className="text-xs font-bold text-green-400 flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4" />
-                  Instancia vinculada y lista para recibir solicitudes QR
-                </span>
-                <p className="text-xs text-zinc-400">
-                  Ambos sistemas (Fidelización y Difusión masiva) están escuchando a través del mismo canal.
-                </p>
+              <div className="space-y-3">
+                <div className="p-4 rounded-2xl bg-zinc-900 border border-white/5 space-y-2">
+                  <span className="text-xs font-bold text-green-400 flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4" />
+                    Instancia vinculada y lista para recibir solicitudes QR
+                  </span>
+                  <p className="text-xs text-zinc-400">
+                    Ambos sistemas (Fidelización y Difusión masiva) están escuchando a través del mismo canal.
+                  </p>
+                </div>
+
+                <div className="pt-1 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleDisconnectWhatsApp}
+                    disabled={disconnectingWs}
+                    className="px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    {disconnectingWs ? 'Desconectando...' : 'Desconectar WhatsApp'}
+                  </button>
+                </div>
               </div>
             )}
           </div>

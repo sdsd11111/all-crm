@@ -87,6 +87,103 @@ export async function POST(req: Request) {
     const currentBalance = customer.wallets?.[0] ? Number(customer.wallets[0].balance) : 0
 
     // -------------------------------------------------------------
+    // PASO 0: CAPTURA DE NOMBRE (primera vez o nombre no confiable)
+    // Si el cliente no tiene nombre real registrado, se le pide antes
+    // de continuar con cualquier flujo.
+    // -------------------------------------------------------------
+    const hasRealName = customer.name &&
+      !customer.name.startsWith('Socio ') &&
+      customer.name.trim().length > 2
+
+    // Verificar si está esperando que responda su nombre
+    const pendingNameCapture = await prisma.qrToken.findFirst({
+      where: {
+        tenantId: tenant.id,
+        type: 'AWAITING_NAME',
+        token: { startsWith: `NAME_${phone}|` },
+        expiresAt: { gt: new Date() },
+      },
+    })
+
+    if (pendingNameCapture) {
+      // El cliente responde con su nombre
+      const nameInput = rawText.trim()
+      if (nameInput.length >= 2) {
+        // Guardar nombre en BD
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { name: nameInput },
+        })
+        customer.name = nameInput
+
+        // Recuperar el flujo original que estaba pendiente
+        const pendingAction = pendingNameCapture.token.split('|ACTION:')[1] || ''
+        const pendingToken = pendingNameCapture.token.split('|TOKEN:')[1]?.split('|')[0] || ''
+
+        // Limpiar el token de captura de nombre
+        await prisma.qrToken.deleteMany({
+          where: { tenantId: tenant.id, token: { startsWith: `NAME_${phone}|` } },
+        })
+
+        await sendWhatsAppMessage(
+          phone,
+          `✅ *¡Perfecto, ${nameInput}!* Tu nombre quedó registrado en nuestro sistema. 🎉\n\nAhora continuemos con tu solicitud...`,
+          evoInstance
+        )
+
+        // Continuar con el flujo que el cliente tenía pendiente
+        if (pendingAction) {
+          const branches = await prisma.branch.findMany({
+            where: { tenantId: tenant.id, isActive: true },
+            orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+          })
+
+          let explicitBranch: any = null
+          for (const b of branches) {
+            if (pendingToken.includes(`-${b.code}`) || pendingToken.endsWith(b.code)) {
+              explicitBranch = b
+              break
+            }
+          }
+
+          if (explicitBranch) {
+            return await dispatchBranchFlow(tenant, customer, phone, evoInstance, explicitBranch, pendingAction, currentBalance)
+          }
+          if (branches.length <= 1) {
+            return await dispatchBranchFlow(tenant, customer, phone, evoInstance, branches[0] || null, pendingAction, currentBalance)
+          }
+
+          // Multi-sede: preguntar sede
+          let branchMenu = `📍 *¿EN QUÉ SEDE TE ENCUENTRAS HOY?*\n\nResponde con el número de tu sede:\n\n`
+          branches.forEach((b, idx) => {
+            const crown = b.isMain ? ' 👑 (Matriz)' : ''
+            branchMenu += `*${idx + 1}.* Sede ${b.name}${crown}\n`
+          })
+          branchMenu += `\n_Responde solo con el número (ej: *1* o *2*)._`
+          await sendWhatsAppMessage(phone, branchMenu, evoInstance)
+          await prisma.qrToken.create({
+            data: {
+              tenantId: tenant.id,
+              type: 'BRANCH_SELECTION',
+              token: `BRANCH_SEL_${phone}|ACTION:${pendingAction}`,
+              expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            },
+          })
+          return NextResponse.json({ status: 'name_captured_branch_prompted' })
+        }
+        return NextResponse.json({ status: 'name_captured' })
+      } else {
+        // Nombre muy corto, pedir de nuevo
+        await sendWhatsAppMessage(
+          phone,
+          `Por favor escribe tu *nombre y apellido completo* para registrarte. Ejemplo: _Ana García_`,
+          evoInstance
+        )
+        return NextResponse.json({ status: 'name_too_short' })
+      }
+    }
+
+    // -------------------------------------------------------------
     // CONSULTA AUTÓNOMA DE SALDO: /saldo, saldo, billetera, etc.
     // -------------------------------------------------------------
     const isBalanceQuery = [
@@ -452,6 +549,33 @@ export async function POST(req: Request) {
     let actionType = 'MEM'
     if (tokenExtracted.startsWith('EVAL')) actionType = 'EVAL'
     else if (tokenExtracted.startsWith('RET')) actionType = 'RET'
+
+    // -------------------------------------------------------------
+    // INTERCEPTOR DE NOMBRE: si el cliente no tiene nombre real,
+    // pausar el flujo y pedirle su nombre y apellido primero.
+    // El flujo QR se guarda y se retoma automáticamente en cuanto
+    // el cliente responde con su nombre.
+    // -------------------------------------------------------------
+    if (!hasRealName) {
+      await prisma.qrToken.deleteMany({
+        where: { tenantId: tenant.id, token: { startsWith: `NAME_${phone}|` } },
+      })
+      await prisma.qrToken.create({
+        data: {
+          tenantId: tenant.id,
+          type: 'AWAITING_NAME',
+          token: `NAME_${phone}|ACTION:${actionType}|TOKEN:${tokenExtracted}`,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      })
+
+      await sendWhatsAppMessage(
+        phone,
+        `👋 *¡Bienvenido/a a ${tenant.name}!*\n\nPara registrarte en nuestro sistema de beneficios y cashback, necesitamos tu nombre completo. 😊\n\n✍️ Por favor escribe tu *nombre y apellido*:\n_(Ejemplo: Ana García)_`,
+        evoInstance
+      )
+      return NextResponse.json({ status: 'awaiting_name' })
+    }
 
     // Obtener las sucursales del gimnasio
     const branches = await prisma.branch.findMany({
