@@ -489,12 +489,22 @@ export async function POST(req: Request) {
 
     // -------------------------------------------------------------
     // ENTRADA DE COMANDOS QR: MEM, RET, EVAL (CON SUFIJO O GENÉRICOS)
+    // FIX: solo activar si el mensaje completo ES el código QR, no si
+    // el código aparece enterrado en un texto largo (ej: propuestas,
+    // conversaciones normales que contengan "MEM" o "EVAL" como sílaba).
+    // El redirect del QR genera: "Hola, mi código es MEM-SUR-7A9B" (~40 chars)
+    // Límite máximo: 80 caracteres. Mensajes más largos se ignoran siempre.
     // -------------------------------------------------------------
-    const match = rawText.match(/(MEM-[A-Z0-9-]+|RET-[A-Z0-9-]+|EVAL-[A-Z0-9-]+|\bMEM\b|\bRET\b|\bEVAL\b)/i)
-    const tokenExtracted = match ? match[1].toUpperCase() : rawText.trim().toUpperCase()
+    if (rawText.trim().length > 80) {
+      return NextResponse.json({ status: 'not_club_command' })
+    }
 
-    const isQrCommand = tokenExtracted.startsWith('EVAL') || tokenExtracted.startsWith('MEM') || tokenExtracted.startsWith('RET')
-    if (!isQrCommand) {
+    // Extraer el token del mensaje (que debería ser casi todo el contenido)
+    const qrPattern = /^(?:hola[,.]?\s+mi\s+c[oó]digo\s+es\s+)?(MEM-[A-Z0-9-]+|RET-[A-Z0-9-]+|EVAL-[A-Z0-9-]+|MEM|RET|EVAL)$/i
+    const strictMatch = rawText.trim().match(qrPattern)
+    const tokenExtracted = strictMatch ? strictMatch[1].toUpperCase() : null
+
+    if (!tokenExtracted) {
       return NextResponse.json({ status: 'not_club_command' })
     }
 
