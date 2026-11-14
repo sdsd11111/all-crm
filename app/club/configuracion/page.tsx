@@ -60,14 +60,14 @@ export default function ClubConfig() {
   const [newPlanPrice, setNewPlanPrice] = useState('')
   const [newPlanCashback, setNewPlanCashback] = useState('2.00')
   const [newPlanMonths, setNewPlanMonths] = useState('1')
-  const [newPlanBranchId, setNewPlanBranchId] = useState<string>('')
+  const [newPlanBranchIds, setNewPlanBranchIds] = useState<string[]>([])
   const [addingPlan, setAddingPlan] = useState(false)
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editPlanName, setEditPlanName] = useState('')
   const [editPlanPrice, setEditPlanPrice] = useState('')
   const [editPlanCashback, setEditPlanCashback] = useState('0')
   const [editPlanMonths, setEditPlanMonths] = useState('1')
-  const [editPlanBranchId, setEditPlanBranchId] = useState<string>('')
+  const [editPlanBranchIds, setEditPlanBranchIds] = useState<string[]>([])
   const [updatingPlan, setUpdatingPlan] = useState(false)
 
 
@@ -150,19 +150,18 @@ export default function ClubConfig() {
     try {
       setAddingPlan(true)
       const months = Math.max(1, parseInt(newPlanMonths) || 1)
-      const targetBranch = newPlanBranchId || (selectedBranchId !== 'all' ? selectedBranchId : null)
       await axios.post('/api/club/plans', {
         name: newPlanName.trim(),
         price: parseFloat(newPlanPrice),
         cashbackAmount: parseFloat(newPlanCashback) || 0,
         durationDays: months * 30,
-        branchId: targetBranch,
+        branchId: newPlanBranchIds.length > 0 ? newPlanBranchIds.join(',') : null,
       })
       setNewPlanName('')
       setNewPlanPrice('')
       setNewPlanCashback('2.00')
       setNewPlanMonths('1')
-      setNewPlanBranchId('')
+      setNewPlanBranchIds([])
       loadPlans()
     } catch (e: any) {
       alert('Error agregando plan: ' + (e.response?.data?.error || e.message))
@@ -186,7 +185,7 @@ export default function ClubConfig() {
     setEditPlanName(plan.name)
     setEditPlanPrice(String(plan.price))
     setEditPlanCashback(String(plan.cashbackAmount ?? 0))
-    setEditPlanBranchId(plan.branchId || '')
+    setEditPlanBranchIds(plan.branchId ? plan.branchId.split(',').map((s: string) => s.trim()).filter(Boolean) : [])
     const calcMonths = Math.max(1, Math.round((plan.durationDays || 30) / 30))
     setEditPlanMonths(String(calcMonths))
   }
@@ -197,7 +196,7 @@ export default function ClubConfig() {
     setEditPlanPrice('')
     setEditPlanCashback('0')
     setEditPlanMonths('1')
-    setEditPlanBranchId('')
+    setEditPlanBranchIds([])
   }
 
   const handleUpdatePlan = async (id: string) => {
@@ -214,7 +213,7 @@ export default function ClubConfig() {
         price: parseFloat(editPlanPrice),
         cashbackAmount: parseFloat(editPlanCashback) || 0,
         durationDays: months * 30,
-        branchId: editPlanBranchId || null,
+        branchId: editPlanBranchIds.length > 0 ? editPlanBranchIds.join(',') : null,
       })
       cancelEditPlan()
       loadPlans()
@@ -359,7 +358,9 @@ export default function ClubConfig() {
 
   const displayedPlans = plans.filter((p) => {
     if (selectedBranchId === 'all') return true
-    return p.branchId === selectedBranchId || !p.branchId
+    if (!p.branchId) return true // global — se muestra en todas
+    const ids = p.branchId.split(',').map((s: string) => s.trim())
+    return ids.includes(selectedBranchId)
   })
 
   // Lista de 4 Módulos / Bento Tabs
@@ -686,7 +687,10 @@ export default function ClubConfig() {
                   Todas las Sedes ({plans.length})
                 </button>
                 {branches.map((b) => {
-                  const countForBranch = plans.filter((p) => p.branchId === b.id).length
+                  const countForBranch = plans.filter((p) => {
+                    if (!p.branchId) return true // global cuenta en todas
+                    return p.branchId.split(',').map((s: string) => s.trim()).includes(b.id)
+                  }).length
                   const isSelected = selectedBranchId === b.id
                   return (
                     <button
@@ -734,20 +738,34 @@ export default function ClubConfig() {
 
                   <div className="sm:col-span-3">
                     <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                      Sede Asignada
+                      Sede(s) Asignadas
                     </label>
-                    <select
-                      value={newPlanBranchId || (selectedBranchId !== 'all' ? selectedBranchId : '')}
-                      onChange={(e) => setNewPlanBranchId(e.target.value)}
-                      className="w-full px-3 py-2 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold"
-                    >
-                      <option value="">🌐 Todas las Sedes (Global)</option>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1.5 p-2.5 bg-black border border-white/10 rounded">
+                      <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={newPlanBranchIds.length === 0}
+                          onChange={() => setNewPlanBranchIds([])}
+                          className="accent-cyan-400"
+                        />
+                        <span className="text-zinc-300">🌐 Todas</span>
+                      </label>
                       {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          📍 Sede {b.name} ({b.code})
-                        </option>
+                        <label key={b.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={newPlanBranchIds.includes(b.id)}
+                            onChange={(e) => {
+                              setNewPlanBranchIds(prev =>
+                                e.target.checked ? [...prev, b.id] : prev.filter(id => id !== b.id)
+                              )
+                            }}
+                            className="accent-cyan-400"
+                          />
+                          <span className="text-zinc-300">📍 {b.name}</span>
+                        </label>
                       ))}
-                    </select>
+                    </div>
                   </div>
 
                   <div className="sm:col-span-2">
@@ -829,7 +847,9 @@ export default function ClubConfig() {
                       ? Number(p.cashbackAmount).toFixed(2)
                       : '0.00'
                     const planMonths = Math.max(1, Math.round((p.durationDays || 30) / 30))
-                    const branchName = p.branch?.name || (branches.find(b => b.id === p.branchId)?.name)
+                    const planBranchIds = p.branchId
+                      ? p.branchId.split(',').map((s: string) => s.trim()).filter(Boolean)
+                      : []
 
                     return (
                       <div key={p.id} className="py-2.5">
@@ -845,54 +865,72 @@ export default function ClubConfig() {
                                 <X className="w-4 h-4" />
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5 items-end">
-                              <div>
-                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Nombre</label>
-                                <input
-                                  type="text"
-                                  value={editPlanName}
-                                  onChange={(e) => setEditPlanName(e.target.value)}
-                                  className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none"
-                                />
+                            <div className="space-y-2.5">
+                              {/* Fila 1: Nombre y Sede(s) */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Nombre</label>
+                                  <input
+                                    type="text"
+                                    value={editPlanName}
+                                    onChange={(e) => setEditPlanName(e.target.value)}
+                                    className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none"
+                                  />
+                                </div>
+                                <div className="sm:col-span-5">
+                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Sede(s)</label>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-1.5 p-2 bg-black border border-white/10 rounded">
+                                    <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={editPlanBranchIds.length === 0}
+                                        onChange={() => setEditPlanBranchIds([])}
+                                        className="accent-cyan-400"
+                                      />
+                                      <span className="text-zinc-300">🌐 Todas</span>
+                                    </label>
+                                    {branches.map((b) => (
+                                      <label key={b.id} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                                        <input
+                                          type="checkbox"
+                                          checked={editPlanBranchIds.includes(b.id)}
+                                          onChange={(e) => {
+                                            setEditPlanBranchIds(prev =>
+                                              e.target.checked ? [...prev, b.id] : prev.filter(id => id !== b.id)
+                                            )
+                                          }}
+                                          className="accent-cyan-400"
+                                        />
+                                        <span className="text-zinc-300">📍 {b.name}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Sede</label>
-                                <select
-                                  value={editPlanBranchId}
-                                  onChange={(e) => setEditPlanBranchId(e.target.value)}
-                                  className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold"
-                                >
-                                  <option value="">🌐 Todas las Sedes</option>
-                                  {branches.map((b) => (
-                                    <option key={b.id} value={b.id}>
-                                      📍 Sede {b.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Precio USD</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={editPlanPrice}
-                                  onChange={(e) => setEditPlanPrice(e.target.value)}
-                                  className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Cashback $</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={editPlanCashback}
-                                  onChange={(e) => setEditPlanCashback(e.target.value)}
-                                  className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold text-emerald-400"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Meses</label>
-                                <div className="flex items-center gap-2">
+                              {/* Fila 2: Precio, Cashback, Meses + Guardar */}
+                              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Precio USD</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={editPlanPrice}
+                                    onChange={(e) => setEditPlanPrice(e.target.value)}
+                                    className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Cashback $</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={editPlanCashback}
+                                    onChange={(e) => setEditPlanCashback(e.target.value)}
+                                    className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold text-emerald-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Meses</label>
                                   <input
                                     type="number"
                                     min="1"
@@ -901,12 +939,15 @@ export default function ClubConfig() {
                                     onChange={(e) => setEditPlanMonths(e.target.value)}
                                     className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold"
                                   />
+                                </div>
+                                <div className="flex items-end">
                                   <button
                                     onClick={() => handleUpdatePlan(p.id)}
                                     disabled={updatingPlan}
-                                    className="px-3 py-1.5 bg-green-500 hover:bg-green-400 text-black font-bold text-xs rounded transition-colors flex items-center gap-1 shrink-0"
+                                    className="w-full px-3 py-1.5 bg-green-500 hover:bg-green-400 text-black font-bold text-xs rounded transition-colors flex items-center justify-center gap-1"
                                   >
                                     <Check className="w-3.5 h-3.5" />
+                                    <span>{updatingPlan ? '...' : 'Guardar'}</span>
                                   </button>
                                 </div>
                               </div>
@@ -928,10 +969,15 @@ export default function ClubConfig() {
                               <div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-bold text-white block">{p.name}</span>
-                                  {branchName ? (
-                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
-                                      📍 {branchName}
-                                    </span>
+                                  {planBranchIds.length > 0 ? (
+                                    planBranchIds.map((bid: string) => {
+                                      const b = branches.find((br: any) => br.id === bid)
+                                      return b ? (
+                                        <span key={bid} className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
+                                          📍 {b.name}
+                                        </span>
+                                      ) : null
+                                    })
                                   ) : (
                                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-white/5">
                                       🌐 Todas

@@ -14,42 +14,51 @@ export async function GET(req: Request) {
       ? undefined 
       : (queryBranchId || cookieBranchId || undefined)
 
-    const whereClause: any = { tenantId }
-    if (targetBranchId) {
-      whereClause.OR = [
-        { branchId: targetBranchId },
-        { branchId: null },
-      ]
-    }
-
     const plans = await prisma.membershipPlan.findMany({
-      where: whereClause,
+      where: { tenantId },
       orderBy: { price: 'asc' },
       include: {
         branch: { select: { id: true, name: true, code: true } },
       },
     })
 
-    return NextResponse.json({ success: true, plans })
+    // Si hay targetBranchId, filtramos los que apliquen a esa sede (o sean globales o contengan el id en lista)
+    const filteredPlans = targetBranchId
+      ? plans.filter((p) => {
+          if (!p.branchId) return true // Global / todas las sedes
+          const ids = p.branchId.split(',').map((s) => s.trim())
+          return ids.includes(targetBranchId)
+        })
+      : plans
+
+    return NextResponse.json({ success: true, plans: filteredPlans })
   } catch (error: any) {
     const status = error?.status || 500
     return NextResponse.json({ error: error.message }, { status })
   }
 }
 
-// POST /api/club/plans: Crea un nuevo plan de membresía asociado a una sede
+// POST /api/club/plans: Crea un nuevo plan de membresía asociado a una o varias sedes
 export async function POST(req: Request) {
   try {
     const { tenantId, branchId: cookieBranchId } = await getTenantFromRequest(req)
-    const { name, price, durationDays, cashbackAmount, branchId, targetBranchId } = await req.json()
+    const { name, price, durationDays, cashbackAmount, branchId, branchIds, targetBranchId } = await req.json()
 
     if (!name || price === undefined) {
       return NextResponse.json({ error: 'Nombre y precio son obligatorios' }, { status: 400 })
     }
 
-    const finalBranchId = targetBranchId !== undefined 
-      ? (targetBranchId || null) 
-      : (branchId !== undefined ? (branchId || null) : (cookieBranchId || null))
+    // Permitir branchIds como array ej ["id1", "id2"] o string separado por coma
+    let finalBranchId: string | null = null
+    if (Array.isArray(branchIds)) {
+      finalBranchId = branchIds.filter(Boolean).join(',') || null
+    } else if (targetBranchId !== undefined) {
+      finalBranchId = targetBranchId || null
+    } else if (branchId !== undefined) {
+      finalBranchId = branchId || null
+    } else if (cookieBranchId) {
+      finalBranchId = cookieBranchId
+    }
 
     const plan = await prisma.membershipPlan.create({
       data: {
@@ -77,7 +86,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const { tenantId } = await getTenantFromRequest(req)
-    const { id, name, price, durationDays, cashbackAmount, isActive, branchId } = await req.json()
+    const { id, name, price, durationDays, cashbackAmount, isActive, branchId, branchIds } = await req.json()
 
     if (!id) {
       return NextResponse.json({ error: 'ID es obligatorio' }, { status: 400 })
@@ -92,6 +101,13 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Plan no encontrado' }, { status: 404 })
     }
 
+    let finalBranchId: string | null | undefined = undefined
+    if (Array.isArray(branchIds)) {
+      finalBranchId = branchIds.filter(Boolean).join(',') || null
+    } else if (branchId !== undefined) {
+      finalBranchId = branchId || null
+    }
+
     const updated = await prisma.membershipPlan.update({
       where: { id },
       data: {
@@ -100,7 +116,7 @@ export async function PUT(req: Request) {
         durationDays: durationDays !== undefined ? parseInt(durationDays) : undefined,
         cashbackAmount: cashbackAmount !== undefined ? Number(cashbackAmount) : undefined,
         isActive: isActive !== undefined ? Boolean(isActive) : undefined,
-        branchId: branchId !== undefined ? (branchId || null) : undefined,
+        ...(finalBranchId !== undefined ? { branchId: finalBranchId } : {}),
       },
       include: {
         branch: { select: { id: true, name: true, code: true } },

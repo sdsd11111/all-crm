@@ -447,19 +447,19 @@ export async function POST(req: Request) {
       const branchIdInToken = pendingPlanSelection.token.split('|BRANCH:')[1] || null
       const index = parseInt(rawText) - 1
 
-      // Filtrar planes de la sede correspondiente o globales (branchId null)
-      const wherePlans: any = { tenantId: tenant.id, isActive: true }
-      if (branchIdInToken) {
-        wherePlans.OR = [
-          { branchId: branchIdInToken },
-          { branchId: null },
-        ]
-      }
-
-      const plans = await prisma.membershipPlan.findMany({
-        where: wherePlans,
+      // Filtrar planes de la sede correspondiente (acepta sedes múltiples separadas por coma o globales)
+      const allPlans = await prisma.membershipPlan.findMany({
+        where: { tenantId: tenant.id, isActive: true },
         orderBy: { price: 'asc' },
       })
+
+      const plans = branchIdInToken
+        ? allPlans.filter((p) => {
+            if (!p.branchId) return true
+            const ids = p.branchId.split(',').map((s) => s.trim())
+            return ids.includes(branchIdInToken)
+          })
+        : allPlans
 
       if (index >= 0 && index < plans.length) {
         const chosenPlan = plans[index]
@@ -725,18 +725,18 @@ async function dispatchBranchFlow(
 
   // FLUJO 2: PAGO DE MENSUALIDAD (MEM)
   if (actionType === 'MEM') {
-    const wherePlans: any = { tenantId: tenant.id, isActive: true }
-    if (branchId) {
-      wherePlans.OR = [
-        { branchId },
-        { branchId: null },
-      ]
-    }
-
-    const plans = await prisma.membershipPlan.findMany({
-      where: wherePlans,
+    const allPlans = await prisma.membershipPlan.findMany({
+      where: { tenantId: tenant.id, isActive: true },
       orderBy: { price: 'asc' },
     })
+
+    const plans = branchId
+      ? allPlans.filter((p) => {
+          if (!p.branchId) return true
+          const ids = p.branchId.split(',').map((s) => s.trim())
+          return ids.includes(branchId)
+        })
+      : allPlans
 
     if (plans.length === 0) {
       await sendWhatsAppMessage(
