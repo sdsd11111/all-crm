@@ -2,14 +2,32 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getTenantFromRequest } from '@/lib/getTenant'
 
-// GET /api/club/plans: Lista todos los planes de membresía del gimnasio activo
+// GET /api/club/plans: Lista los planes de membresía, filtrable por branchId si se requiere
 export async function GET(req: Request) {
   try {
-    const { tenantId } = await getTenantFromRequest(req)
+    const { tenantId, branchId: cookieBranchId } = await getTenantFromRequest(req)
+    const { searchParams } = new URL(req.url)
+    const queryBranchId = searchParams.get('branchId')
+    
+    // Si se pasa branchId='all', devuelve todos sin filtro de branch
+    const targetBranchId = queryBranchId === 'all' 
+      ? undefined 
+      : (queryBranchId || cookieBranchId || undefined)
+
+    const whereClause: any = { tenantId }
+    if (targetBranchId) {
+      whereClause.OR = [
+        { branchId: targetBranchId },
+        { branchId: null },
+      ]
+    }
 
     const plans = await prisma.membershipPlan.findMany({
-      where: { tenantId },
+      where: whereClause,
       orderBy: { price: 'asc' },
+      include: {
+        branch: { select: { id: true, name: true, code: true } },
+      },
     })
 
     return NextResponse.json({ success: true, plans })
@@ -19,24 +37,32 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/club/plans: Crea un nuevo plan de membresía
+// POST /api/club/plans: Crea un nuevo plan de membresía asociado a una sede
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await getTenantFromRequest(req)
-    const { name, price, durationDays, cashbackAmount } = await req.json()
+    const { tenantId, branchId: cookieBranchId } = await getTenantFromRequest(req)
+    const { name, price, durationDays, cashbackAmount, branchId, targetBranchId } = await req.json()
 
     if (!name || price === undefined) {
       return NextResponse.json({ error: 'Nombre y precio son obligatorios' }, { status: 400 })
     }
 
+    const finalBranchId = targetBranchId !== undefined 
+      ? (targetBranchId || null) 
+      : (branchId !== undefined ? (branchId || null) : (cookieBranchId || null))
+
     const plan = await prisma.membershipPlan.create({
       data: {
         tenantId,
+        branchId: finalBranchId,
         name: name.trim(),
         price: Number(price),
         durationDays: durationDays ? parseInt(durationDays) : 30,
         cashbackAmount: cashbackAmount !== undefined ? Number(cashbackAmount) : 0,
         isActive: true,
+      },
+      include: {
+        branch: { select: { id: true, name: true, code: true } },
       },
     })
 
@@ -51,7 +77,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const { tenantId } = await getTenantFromRequest(req)
-    const { id, name, price, durationDays, cashbackAmount, isActive } = await req.json()
+    const { id, name, price, durationDays, cashbackAmount, isActive, branchId } = await req.json()
 
     if (!id) {
       return NextResponse.json({ error: 'ID es obligatorio' }, { status: 400 })
@@ -74,6 +100,10 @@ export async function PUT(req: Request) {
         durationDays: durationDays !== undefined ? parseInt(durationDays) : undefined,
         cashbackAmount: cashbackAmount !== undefined ? Number(cashbackAmount) : undefined,
         isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+        branchId: branchId !== undefined ? (branchId || null) : undefined,
+      },
+      include: {
+        branch: { select: { id: true, name: true, code: true } },
       },
     })
 

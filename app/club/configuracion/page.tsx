@@ -54,16 +54,20 @@ export default function ClubConfig() {
   // Gestión de Planes de Membresía
   const [plans, setPlans] = useState<any[]>([])
   const [loadingPlans, setLoadingPlans] = useState(false)
+  const [branches, setBranches] = useState<any[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('all')
   const [newPlanName, setNewPlanName] = useState('')
   const [newPlanPrice, setNewPlanPrice] = useState('')
   const [newPlanCashback, setNewPlanCashback] = useState('2.00')
   const [newPlanMonths, setNewPlanMonths] = useState('1')
+  const [newPlanBranchId, setNewPlanBranchId] = useState<string>('')
   const [addingPlan, setAddingPlan] = useState(false)
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editPlanName, setEditPlanName] = useState('')
   const [editPlanPrice, setEditPlanPrice] = useState('')
   const [editPlanCashback, setEditPlanCashback] = useState('0')
   const [editPlanMonths, setEditPlanMonths] = useState('1')
+  const [editPlanBranchId, setEditPlanBranchId] = useState<string>('')
   const [updatingPlan, setUpdatingPlan] = useState(false)
 
 
@@ -117,10 +121,21 @@ export default function ClubConfig() {
     }
   }
 
+  const loadBranches = async () => {
+    try {
+      const res = await axios.get('/api/club/branches')
+      if (res.data?.success) {
+        setBranches(res.data.branches || [])
+      }
+    } catch (e) {
+      console.error('Error cargando sedes:', e)
+    }
+  }
+
   const loadPlans = async () => {
     try {
       setLoadingPlans(true)
-      const res = await axios.get('/api/club/plans')
+      const res = await axios.get('/api/club/plans?branchId=all')
       setPlans(res.data.plans || [])
     } catch (e) {
       console.error('Error cargando planes:', e)
@@ -135,16 +150,19 @@ export default function ClubConfig() {
     try {
       setAddingPlan(true)
       const months = Math.max(1, parseInt(newPlanMonths) || 1)
+      const targetBranch = newPlanBranchId || (selectedBranchId !== 'all' ? selectedBranchId : null)
       await axios.post('/api/club/plans', {
         name: newPlanName.trim(),
         price: parseFloat(newPlanPrice),
         cashbackAmount: parseFloat(newPlanCashback) || 0,
         durationDays: months * 30,
+        branchId: targetBranch,
       })
       setNewPlanName('')
       setNewPlanPrice('')
       setNewPlanCashback('2.00')
       setNewPlanMonths('1')
+      setNewPlanBranchId('')
       loadPlans()
     } catch (e: any) {
       alert('Error agregando plan: ' + (e.response?.data?.error || e.message))
@@ -168,6 +186,7 @@ export default function ClubConfig() {
     setEditPlanName(plan.name)
     setEditPlanPrice(String(plan.price))
     setEditPlanCashback(String(plan.cashbackAmount ?? 0))
+    setEditPlanBranchId(plan.branchId || '')
     const calcMonths = Math.max(1, Math.round((plan.durationDays || 30) / 30))
     setEditPlanMonths(String(calcMonths))
   }
@@ -178,6 +197,7 @@ export default function ClubConfig() {
     setEditPlanPrice('')
     setEditPlanCashback('0')
     setEditPlanMonths('1')
+    setEditPlanBranchId('')
   }
 
   const handleUpdatePlan = async (id: string) => {
@@ -194,6 +214,7 @@ export default function ClubConfig() {
         price: parseFloat(editPlanPrice),
         cashbackAmount: parseFloat(editPlanCashback) || 0,
         durationDays: months * 30,
+        branchId: editPlanBranchId || null,
       })
       cancelEditPlan()
       loadPlans()
@@ -309,6 +330,7 @@ export default function ClubConfig() {
       }
     }
     loadConfig()
+    loadBranches()
     loadCoaches()
     loadPlans()
     checkWhatsAppStatus()
@@ -335,6 +357,11 @@ export default function ClubConfig() {
     }
   }
 
+  const displayedPlans = plans.filter((p) => {
+    if (selectedBranchId === 'all') return true
+    return p.branchId === selectedBranchId || !p.branchId
+  })
+
   // Lista de 4 Módulos / Bento Tabs
   const bentoNavItems = [
     {
@@ -350,9 +377,9 @@ export default function ClubConfig() {
       id: 'plans' as const,
       num: '02',
       title: 'Planes de Membresía',
-      subtitle: `${plans.length} planes registrados`,
+      subtitle: `${displayedPlans.length} planes en ${selectedBranchId === 'all' ? 'Todas las sedes' : (branches.find(b => b.id === selectedBranchId)?.name || 'Sede')}`,
       icon: CreditCard,
-      badge: `${plans.length} ACTIVOS`,
+      badge: `${displayedPlans.length} ACTIVOS`,
       badgeColor: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
     },
     {
@@ -621,45 +648,106 @@ export default function ClubConfig() {
           {/* TAB 02: PLANES DE MEMBRESÍA */}
           {activeTab === 'plans' && (
             <div className="rounded border border-white/10 bg-[var(--bg-card,#05101C)] p-6 sm:p-7 space-y-6 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded bg-[var(--color-primary,#00F5D4)]/10 border border-[var(--color-primary,#00F5D4)]/30 flex items-center justify-center text-[var(--color-primary,#00F5D4)]">
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
                     <h2 className="text-base sm:text-lg font-black text-white uppercase tracking-tight">
-                      Planes de Membresía & Tarifas
+                      Planes de Membresía por Sede
                     </h2>
                     <p className="text-xs text-zinc-400">
-                      Define los precios de venta, meses de vigencia y cashback asignado al socio.
+                      Define los precios, meses de vigencia y cashback asignados a cada sede.
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded border border-white/10">
-                  {plans.length} Planes
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded border border-white/10">
+                    {displayedPlans.length} Planes
+                  </span>
+                </div>
+              </div>
+
+              {/* Selector / Filtro de Sede */}
+              <div className="flex flex-wrap items-center gap-2 p-1.5 bg-zinc-950/80 rounded border border-white/10">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider px-2">
+                  Filtrar por Sede:
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBranchId('all')}
+                  className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                    selectedBranchId === 'all'
+                      ? 'bg-[var(--color-primary,#00F5D4)] text-black shadow'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Todas las Sedes ({plans.length})
+                </button>
+                {branches.map((b) => {
+                  const countForBranch = plans.filter((p) => p.branchId === b.id).length
+                  const isSelected = selectedBranchId === b.id
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setSelectedBranchId(b.id)}
+                      className={`px-3 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-[var(--color-primary,#00F5D4)] text-black shadow'
+                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <span>{b.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isSelected ? 'bg-black/20 text-black' : 'bg-white/10 text-zinc-300'}`}>
+                        {countForBranch}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
 
               {/* Formulario para agregar nuevo plan */}
               <form onSubmit={handleAddPlan} className="space-y-4 bg-zinc-900/60 p-4 rounded border border-white/10">
                 <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">Crear Nuevo Plan de Membresía</span>
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    Crear Nuevo Plan {selectedBranchId !== 'all' ? `para Sede ${branches.find(b => b.id === selectedBranchId)?.name}` : ''}
+                  </span>
                   <span className="text-[11px] text-zinc-400">Ingresa duración en meses o días</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  <div className="sm:col-span-4">
+                  <div className="sm:col-span-3">
                     <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
                       Nombre del Plan
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="Ej: Mensualidad VIP, Trimestre..."
+                      placeholder="Ej: Mensualidad VIP..."
                       value={newPlanName}
                       onChange={(e) => setNewPlanName(e.target.value)}
                       className="w-full px-3 py-2 bg-black border border-white/10 rounded text-xs text-white focus:outline-none placeholder-zinc-500"
                     />
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
+                      Sede Asignada
+                    </label>
+                    <select
+                      value={newPlanBranchId || (selectedBranchId !== 'all' ? selectedBranchId : '')}
+                      onChange={(e) => setNewPlanBranchId(e.target.value)}
+                      className="w-full px-3 py-2 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold"
+                    >
+                      <option value="">🌐 Todas las Sedes (Global)</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          📍 Sede {b.name} ({b.code})
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="sm:col-span-2">
@@ -681,9 +769,9 @@ export default function ClubConfig() {
                     </div>
                   </div>
 
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-2">
                     <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                      Cashback Retorno ($)
+                      Cashback ($)
                     </label>
                     <div className="relative">
                       <span className="absolute left-2.5 top-2 text-xs text-emerald-400 font-bold">+$</span>
@@ -699,9 +787,9 @@ export default function ClubConfig() {
                     </div>
                   </div>
 
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-2">
                     <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                      Duración (Meses)
+                      Meses
                     </label>
                     <div className="flex items-center gap-2">
                       <input
@@ -730,17 +818,18 @@ export default function ClubConfig() {
 
               {/* Lista de planes de membresía */}
               <div className="divide-y divide-white/10 max-h-96 overflow-y-auto space-y-1">
-                {plans.length === 0 ? (
+                {displayedPlans.length === 0 ? (
                   <div className="text-center py-8 text-xs text-zinc-500">
-                    No hay planes registrados aún. Crea uno con el formulario superior.
+                    No hay planes registrados para esta sede aún. Crea uno con el formulario superior.
                   </div>
                 ) : (
-                  plans.map((p) => {
+                  displayedPlans.map((p) => {
                     const isEditing = editingPlanId === p.id
                     const cashbackAmt = p.cashbackAmount !== undefined && p.cashbackAmount !== null
                       ? Number(p.cashbackAmount).toFixed(2)
                       : '0.00'
                     const planMonths = Math.max(1, Math.round((p.durationDays || 30) / 30))
+                    const branchName = p.branch?.name || (branches.find(b => b.id === p.branchId)?.name)
 
                     return (
                       <div key={p.id} className="py-2.5">
@@ -756,7 +845,7 @@ export default function ClubConfig() {
                                 <X className="w-4 h-4" />
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
+                            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5 items-end">
                               <div>
                                 <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Nombre</label>
                                 <input
@@ -765,6 +854,21 @@ export default function ClubConfig() {
                                   onChange={(e) => setEditPlanName(e.target.value)}
                                   className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none"
                                 />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Sede</label>
+                                <select
+                                  value={editPlanBranchId}
+                                  onChange={(e) => setEditPlanBranchId(e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold"
+                                >
+                                  <option value="">🌐 Todas las Sedes</option>
+                                  {branches.map((b) => (
+                                    <option key={b.id} value={b.id}>
+                                      📍 Sede {b.name}
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
                               <div>
                                 <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Precio USD</label>
@@ -822,7 +926,18 @@ export default function ClubConfig() {
                                 ${Number(p.price).toFixed(0)}
                               </div>
                               <div>
-                                <span className="text-sm font-bold text-white block">{p.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-white block">{p.name}</span>
+                                  {branchName ? (
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
+                                      📍 {branchName}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-white/5">
+                                      🌐 Todas
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex items-center gap-2 text-xs text-zinc-400">
                                   <span>${Number(p.price).toFixed(2)} USD</span>
                                   <span>&bull;</span>

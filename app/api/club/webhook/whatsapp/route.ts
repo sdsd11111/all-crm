@@ -446,8 +446,18 @@ export async function POST(req: Request) {
     if (pendingPlanSelection && /^\d+$/.test(rawText)) {
       const branchIdInToken = pendingPlanSelection.token.split('|BRANCH:')[1] || null
       const index = parseInt(rawText) - 1
+
+      // Filtrar planes de la sede correspondiente o globales (branchId null)
+      const wherePlans: any = { tenantId: tenant.id, isActive: true }
+      if (branchIdInToken) {
+        wherePlans.OR = [
+          { branchId: branchIdInToken },
+          { branchId: null },
+        ]
+      }
+
       const plans = await prisma.membershipPlan.findMany({
-        where: { tenantId: tenant.id, isActive: true },
+        where: wherePlans,
         orderBy: { price: 'asc' },
       })
 
@@ -715,10 +725,27 @@ async function dispatchBranchFlow(
 
   // FLUJO 2: PAGO DE MENSUALIDAD (MEM)
   if (actionType === 'MEM') {
+    const wherePlans: any = { tenantId: tenant.id, isActive: true }
+    if (branchId) {
+      wherePlans.OR = [
+        { branchId },
+        { branchId: null },
+      ]
+    }
+
     const plans = await prisma.membershipPlan.findMany({
-      where: { tenantId: tenant.id, isActive: true },
+      where: wherePlans,
       orderBy: { price: 'asc' },
     })
+
+    if (plans.length === 0) {
+      await sendWhatsAppMessage(
+        phone,
+        `❌ No hay planes de membresía disponibles para la *Sede ${branchName}* en este momento. Consulta en recepción.`,
+        evoInstance
+      )
+      return NextResponse.json({ status: 'no_plans_in_branch' })
+    }
 
     let msg = `📋 *PLANES DE MENSUALIDAD - SEDE ${branchName.toUpperCase()}*\n\n`
     msg += `Hola *${customer.name}*! Responde con el *número* del plan que deseas abonar en caja:\n\n`

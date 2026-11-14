@@ -231,6 +231,7 @@ model QrToken {
 model MembershipPlan {
   id             String   @id @default(uuid())
   tenantId       String
+  branchId       String?  // Sede asignada (null = todas las sedes / plan general)
   name           String
   price          Decimal  @db.Decimal(10, 2)
   durationDays   Int      @default(30)
@@ -240,8 +241,10 @@ model MembershipPlan {
   updatedAt      DateTime @updatedAt
 
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
+  @@index([branchId])
 }
 
 model FriendPass {
@@ -281,6 +284,7 @@ model Branch {
   tenant                Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   staff                 Staff[]
   payments              Payment[]
+  membershipPlans       MembershipPlan[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
