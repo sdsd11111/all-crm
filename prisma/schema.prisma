@@ -231,7 +231,7 @@ model QrToken {
 model MembershipPlan {
   id             String   @id @default(uuid())
   tenantId       String
-  branchId       String?  // Sede asignada (null = todas las sedes / plan general)
+  branchId       String?  // Sede asignada (null = todas las sedes / plan general, o IDs separados por coma ej "id1,id2")
   name           String
   price          Decimal  @db.Decimal(10, 2)
   durationDays   Int      @default(30)

@@ -55,7 +55,7 @@ export default function ClubConfig() {
   const [plans, setPlans] = useState<any[]>([])
   const [loadingPlans, setLoadingPlans] = useState(false)
   const [branches, setBranches] = useState<any[]>([])
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('all')
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(theme.branchId || 'all')
   const [newPlanName, setNewPlanName] = useState('')
   const [newPlanPrice, setNewPlanPrice] = useState('')
   const [newPlanCashback, setNewPlanCashback] = useState('2.00')
@@ -337,6 +337,13 @@ export default function ClubConfig() {
     const interval = setInterval(checkWhatsAppStatus, 10000)
     return () => clearInterval(interval)
   }, [])
+
+  // Sincroniza el filtro de sede con la sede actual del usuario al cargar
+  useEffect(() => {
+    if (theme.branchId) {
+      setSelectedBranchId(theme.branchId)
+    }
+  }, [theme.branchId])
 
   const handleSave = async () => {
     try {
