@@ -182,15 +182,58 @@ export async function POST(req: Request) {
     }
 
     // -------------------------------------------------------------
-    // CONSULTA AUTÓNOMA DE SALDO: /saldo, saldo, billetera, etc.
+    // CONSULTA AUTÓNOMA DE SALDO Y MENSUALIDAD: /saldo, saldo, mensualidad, etc.
     // -------------------------------------------------------------
     const isBalanceQuery = [
       '/saldo', 'saldo', 'mi saldo', 'cuanto tengo', 'cuanto tengo en mi wallet',
-      'billetera', 'mi billetera', 'wallet', 'monedero', 'puntos', 'cashback'
+      'billetera', 'mi billetera', 'wallet', 'monedero', 'puntos', 'cashback',
+      'mensualidad', 'mi mensualidad', 'vencimiento', 'cuando vence', 'mi cuota', 'cuota'
     ].includes(lowerText)
 
     if (isBalanceQuery) {
-      const msg = `💰 *TU BILLETERA DIGITAL - ${tenant.name.toUpperCase()}*\n\nHola *${customer.name}*!\n\n💵 Saldo disponible: *$${currentBalance.toFixed(2)} USD*\n\n🔥 Puedes canjear hasta el *100%* de este saldo en tu próxima mensualidad, batidos o suplementos en recepción.\n\n_Para canjear, solicítalo al staff en el mostrador._`
+      const expiry = customer.membershipExpiry ? new Date(customer.membershipExpiry) : null
+      const now = new Date()
+
+      let membershipSection = ''
+      if (expiry) {
+        const expDateStr = expiry.toLocaleDateString('es-EC', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+        const cashbackDeadline = new Date(expiry.getTime() + 30 * 24 * 60 * 60 * 1000)
+        const cbDateStr = cashbackDeadline.toLocaleDateString('es-EC', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+
+        const diffExpiryMs = expiry.getTime() - now.getTime()
+        const daysExpiryRemaining = Math.ceil(diffExpiryMs / (1000 * 60 * 60 * 24))
+
+        const diffCbMs = cashbackDeadline.getTime() - now.getTime()
+        const daysCbRemaining = Math.ceil(diffCbMs / (1000 * 60 * 60 * 24))
+
+        if (daysExpiryRemaining > 0) {
+          membershipSection = `\n\n📅 *ESTADO DE TU MENSUALIDAD:*\n` +
+            `• Estado: *Activa* ✅\n` +
+            `• Fin de Mensualidad: *${expDateStr}* (${daysExpiryRemaining} días restantes)\n` +
+            `• Vigencia de tu Cashback: *${cbDateStr}* _(Tienes hasta 30 días después de que finalice tu mensualidad para usarlo)_`
+        } else if (daysCbRemaining > 0) {
+          membershipSection = `\n\n📅 *ESTADO DE TU MENSUALIDAD:*\n` +
+            `• Estado: *Finalizada el ${expDateStr}* ⚠️\n` +
+            `• ⏳ *Período de gracia:* Te quedan *${daysCbRemaining} días* (hasta el *${cbDateStr}*) para renovar y no perder tu saldo de cashback.`
+        } else {
+          membershipSection = `\n\n📅 *ESTADO DE TU MENSUALIDAD:*\n` +
+            `• Estado: *Inactiva* (Finalizó el ${expDateStr})\n` +
+            `• Tu período de gracia de cashback ha expirado. Renueva tu mensualidad en caja para reactivar beneficios.`
+        }
+      } else {
+        membershipSection = `\n\n📅 *ESTADO DE TU MENSUALIDAD:*\n` +
+          `• No registras una mensualidad activa en este momento.`
+      }
+
+      const msg = `💰 *TU BILLETERA DIGITAL - ${tenant.name.toUpperCase()}*\n\nHola *${customer.name}*!\n\n💵 Saldo disponible: *$${currentBalance.toFixed(2)} USD*${membershipSection}\n\n🔥 Puedes canjear hasta el *100%* de este saldo en tu próxima mensualidad, batidos o suplementos en recepción.\n\n_Para canjear, solicítalo al staff en el mostrador._`
       await sendWhatsAppMessage(phone, msg, evoInstance)
       return NextResponse.json({ status: 'balance_sent', balance: currentBalance })
     }

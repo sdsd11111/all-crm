@@ -104,8 +104,11 @@ export async function POST(req: Request) {
         },
       })
 
-      // 1.1 Si es MENSUALIDAD, calcular vigencia de membresía y vigencia del cashback (duración membresía + 30 días de gracia)
+      // 1.1 Si es MENSUALIDAD, calcular vigencia de membresía y vigencia del cashback
       let planDurationDays = 30
+      let finalMembershipExpiry: Date | null = null
+      let finalCashbackDeadline: Date | null = null
+
       if (payment.type === 'MEMBERSHIP') {
         const matchedPlan = await tx.membershipPlan.findFirst({
           where: { tenantId: payment.tenantId, name: payment.description || '' },
@@ -113,13 +116,27 @@ export async function POST(req: Request) {
         if (matchedPlan?.durationDays) {
           planDurationDays = matchedPlan.durationDays
         }
+
         const now = new Date()
-        const membershipExpiry = new Date(now.getTime() + planDurationDays * 24 * 60 * 60 * 1000)
+        // Si el socio ya tenía una membresía activa y no ha vencido, extendemos desde su fecha de vencimiento actual
+        const currentCustomer = await tx.customer.findUnique({
+          where: { id: payment.customerId },
+          select: { membershipExpiry: true },
+        })
+
+        const baseDate = (currentCustomer?.membershipExpiry && new Date(currentCustomer.membershipExpiry) > now)
+          ? new Date(currentCustomer.membershipExpiry)
+          : now
+
+        finalMembershipExpiry = new Date(baseDate.getTime() + planDurationDays * 24 * 60 * 60 * 1000)
+        // Fecha límite de cashback: Vencimiento de membresía + 30 días de gracia
+        finalCashbackDeadline = new Date(finalMembershipExpiry.getTime() + 30 * 24 * 60 * 60 * 1000)
+
         await tx.customer.update({
           where: { id: payment.customerId },
           data: {
             membershipActive: true,
-            membershipExpiry,
+            membershipExpiry: finalMembershipExpiry,
           },
         })
       }
@@ -217,7 +234,17 @@ export async function POST(req: Request) {
         }
       }
 
-      return { updatedPayment, newBalance, friendPassCodes, referrerBonusAmt, referrerNewBalance, actualPayerCashback }
+      return {
+        updatedPayment,
+        newBalance,
+        friendPassCodes,
+        referrerBonusAmt,
+        referrerNewBalance,
+        actualPayerCashback,
+        finalMembershipExpiry,
+        finalCashbackDeadline,
+        planDurationDays,
+      }
     }, {
       maxWait: 15000, // Tiempo máximo de espera para conseguir conexión del pool (15s)
       timeout: 25000, // Tiempo máximo de ejecución de la transacción completa (25s)
@@ -243,9 +270,29 @@ export async function POST(req: Request) {
       ? `\n🤝 Plan activado por recomendación de: *${referrerCustomer.name}*`
       : ''
 
+    let membershipDetails = ''
+    if (payment.type === 'MEMBERSHIP' && result.finalMembershipExpiry && result.finalCashbackDeadline) {
+      const expDateStr = result.finalMembershipExpiry.toLocaleDateString('es-EC', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+      const cbDateStr = result.finalCashbackDeadline.toLocaleDateString('es-EC', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+      const durMonths = Math.max(1, Math.round(result.planDurationDays / 30))
+
+      membershipDetails = `\n\n📅 *DETALLE DE TU MEMBRESÍA:*\n` +
+        `• Duración contratada: *${durMonths === 1 ? '1 Mes' : `${durMonths} Meses`}* (${result.planDurationDays} días)\n` +
+        `• Fin de Mensualidad: *${expDateStr}*\n` +
+        `• Vigencia de tu Cashback: *${cbDateStr}* _(Incluye 30 días de gracia después de que finalice tu mensualidad)_`
+    }
+
     await sendWhatsAppMessage(
       payment.customer.phone,
-      `✅ *¡Pago Aprobado en Caja!*\n\n🏋️ *${payment.tenant.name}*\n\n💵 ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}: *$${amount.toFixed(2)} USD*${prodLine}${payerCashbackLine}\n💰 Tu saldo disponible en Monedero: *$${result.newBalance.toFixed(2)} USD*${passesSection}\n\n¡Gracias por tu visita! Puedes canjear tu saldo acumulado en recepción. 💪`,
+      `✅ *¡Pago Aprobado en Caja!*\n\n🏋️ *${payment.tenant.name}*\n\n💵 ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}: *$${amount.toFixed(2)} USD*${prodLine}${payerCashbackLine}\n💰 Saldo total en Monedero: *$${result.newBalance.toFixed(2)} USD*${membershipDetails}${passesSection}\n\n¡Gracias por entrenar con nosotros! 💪🔥`,
       instanceName
     )
 
