@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendWhatsAppMessage } from '@/lib/evolution'
+import { sendWhatsAppMessage, sendWhatsAppMedia } from '@/lib/evolution'
 
 export async function POST(req: Request) {
   try {
@@ -323,7 +323,18 @@ export async function POST(req: Request) {
         const puestoLabel = roleLabels[chosenCoach.role] || chosenCoach.role || 'Personal'
 
         const msg = `⭐ *CALIFICANDO A ${chosenCoach.name.toUpperCase()} (${puestoLabel.toUpperCase()})*\n\n¿Cuántas estrellas le das a su atención y servicio de hoy?\n\nResponde únicamente con un número del *1 al 5*:\n\n⭐ 1 = Muy insatisfecho\n⭐⭐ 2 = Regular\n⭐⭐⭐ 3 = Bueno\n⭐⭐⭐⭐ 4 = Muy bueno\n⭐⭐⭐⭐⭐ 5 = ¡Excelente!`
-        await sendWhatsAppMessage(phone, msg, evoInstance)
+        
+        // Si el colaborador tiene avatar registrado, lo enviamos con la imagen; de lo contrario texto
+        if (chosenCoach.avatarUrl) {
+          let mediaUrl = chosenCoach.avatarUrl.trim()
+          if (mediaUrl.startsWith('/')) {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.titanusfitness.com'
+            mediaUrl = `${baseUrl.replace(/\/$/, '')}${mediaUrl}`
+          }
+          await sendWhatsAppMedia(phone, mediaUrl, msg, evoInstance)
+        } else {
+          await sendWhatsAppMessage(phone, msg, evoInstance)
+        }
         return NextResponse.json({ status: 'waiting_stars', coach: chosenCoach.name })
       }
     }

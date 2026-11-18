@@ -37,3 +37,46 @@ export async function sendWhatsAppMessage(
     return { success: false, error: error.message }
   }
 }
+
+/**
+ * Envía una imagen/media mediante Evolution API v2 con fallback automático a texto si falla
+ */
+export async function sendWhatsAppMedia(
+  phone: string,
+  mediaUrl: string,
+  caption?: string,
+  instanceName?: string | null
+) {
+  const cleanPhone = phone.replace(/[^0-9]/g, '')
+  const instance = instanceName || EVOLUTION_INSTANCE
+  const url = `${EVOLUTION_API_URL}/message/sendMedia/${instance}`
+
+  try {
+    const response = await axios.post(
+      url,
+      {
+        number: cleanPhone,
+        media: mediaUrl,
+        mediatype: 'image',
+        caption: caption || '',
+        delay: 500,
+      },
+      {
+        headers: {
+          apikey: EVOLUTION_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      }
+    )
+
+    return { success: true, data: response.data }
+  } catch (error: any) {
+    console.error('Error al enviar WhatsApp Media, ejecutando fallback a texto:', error?.response?.data || error.message)
+    // Fallback: Si no se pudo enviar la imagen, enviamos el texto para no trabar la experiencia del usuario
+    if (caption) {
+      return await sendWhatsAppMessage(phone, caption, instance)
+    }
+    return { success: false, error: error.message }
+  }
+}
