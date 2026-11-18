@@ -58,14 +58,14 @@ export default function ClubConfig() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>(theme.branchId || 'all')
   const [newPlanName, setNewPlanName] = useState('')
   const [newPlanPrice, setNewPlanPrice] = useState('')
-  const [newPlanCashback, setNewPlanCashback] = useState('2.00')
+  const [newPlanCashbackPct, setNewPlanCashbackPct] = useState('10')
   const [newPlanMonths, setNewPlanMonths] = useState('1')
   const [newPlanBranchIds, setNewPlanBranchIds] = useState<string[]>([])
   const [addingPlan, setAddingPlan] = useState(false)
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editPlanName, setEditPlanName] = useState('')
   const [editPlanPrice, setEditPlanPrice] = useState('')
-  const [editPlanCashback, setEditPlanCashback] = useState('0')
+  const [editPlanCashbackPct, setEditPlanCashbackPct] = useState('10')
   const [editPlanMonths, setEditPlanMonths] = useState('1')
   const [editPlanBranchIds, setEditPlanBranchIds] = useState<string[]>([])
   const [updatingPlan, setUpdatingPlan] = useState(false)
@@ -150,16 +150,20 @@ export default function ClubConfig() {
     try {
       setAddingPlan(true)
       const months = Math.max(1, parseInt(newPlanMonths) || 1)
+      const priceNum = parseFloat(newPlanPrice) || 0
+      const pctNum = parseFloat(newPlanCashbackPct) || 0
+      const calculatedCashback = parseFloat(((priceNum * pctNum) / 100).toFixed(2))
+
       await axios.post('/api/club/plans', {
         name: newPlanName.trim(),
-        price: parseFloat(newPlanPrice),
-        cashbackAmount: parseFloat(newPlanCashback) || 0,
+        price: priceNum,
+        cashbackAmount: calculatedCashback,
         durationDays: months * 30,
         branchId: newPlanBranchIds.length > 0 ? newPlanBranchIds.join(',') : null,
       })
       setNewPlanName('')
       setNewPlanPrice('')
-      setNewPlanCashback('2.00')
+      setNewPlanCashbackPct('10')
       setNewPlanMonths('1')
       setNewPlanBranchIds([])
       loadPlans()
@@ -183,8 +187,11 @@ export default function ClubConfig() {
   const startEditPlan = (plan: any) => {
     setEditingPlanId(plan.id)
     setEditPlanName(plan.name)
+    const priceNum = Number(plan.price) || 0
     setEditPlanPrice(String(plan.price))
-    setEditPlanCashback(String(plan.cashbackAmount ?? 0))
+    const cbAmt = Number(plan.cashbackAmount ?? 0)
+    const calculatedPct = priceNum > 0 ? Math.round((cbAmt / priceNum) * 100) : 10
+    setEditPlanCashbackPct(String(calculatedPct))
     setEditPlanBranchIds(plan.branchId ? plan.branchId.split(',').map((s: string) => s.trim()).filter(Boolean) : [])
     const calcMonths = Math.max(1, Math.round((plan.durationDays || 30) / 30))
     setEditPlanMonths(String(calcMonths))
@@ -194,7 +201,7 @@ export default function ClubConfig() {
     setEditingPlanId(null)
     setEditPlanName('')
     setEditPlanPrice('')
-    setEditPlanCashback('0')
+    setEditPlanCashbackPct('10')
     setEditPlanMonths('1')
     setEditPlanBranchIds([])
   }
@@ -207,11 +214,15 @@ export default function ClubConfig() {
     try {
       setUpdatingPlan(true)
       const months = Math.max(1, parseInt(editPlanMonths) || 1)
+      const priceNum = parseFloat(editPlanPrice) || 0
+      const pctNum = parseFloat(editPlanCashbackPct) || 0
+      const calculatedCashback = parseFloat(((priceNum * pctNum) / 100).toFixed(2))
+
       await axios.put('/api/club/plans', {
         id,
         name: editPlanName.trim(),
-        price: parseFloat(editPlanPrice),
-        cashbackAmount: parseFloat(editPlanCashback) || 0,
+        price: priceNum,
+        cashbackAmount: calculatedCashback,
         durationDays: months * 30,
         branchId: editPlanBranchIds.length > 0 ? editPlanBranchIds.join(',') : null,
       })
@@ -402,10 +413,10 @@ export default function ClubConfig() {
     {
       id: 'channels' as const,
       num: '04',
-      title: 'Reseñas & Google',
-      subtitle: 'Enlace de Google Reviews 5 Estrellas',
+      title: 'Fidelización & Tienda',
+      subtitle: `Tienda: ${retailCashback}% Cashback · Reseñas Google`,
       icon: Sliders,
-      badge: 'RESEÑAS',
+      badge: `${retailCashback}% TIENDA`,
       badgeColor: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
     },
   ]
@@ -795,20 +806,26 @@ export default function ClubConfig() {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-bold text-zinc-300 uppercase tracking-wider mb-1">
-                      Cashback ($)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">
+                        Cashback (%)
+                      </label>
+                      <span className="text-[10px] text-emerald-400 font-bold font-mono">
+                        ${((parseFloat(newPlanPrice || '0') * parseFloat(newPlanCashbackPct || '0')) / 100).toFixed(2)}
+                      </span>
+                    </div>
                     <div className="relative">
-                      <span className="absolute left-2.5 top-2 text-xs text-emerald-400 font-bold">+$</span>
                       <input
                         type="number"
-                        step="0.01"
+                        step="1"
                         min="0"
-                        placeholder="2.00"
-                        value={newPlanCashback}
-                        onChange={(e) => setNewPlanCashback(e.target.value)}
-                        className="w-full pl-8 pr-2 py-2 bg-black border border-white/10 rounded text-xs text-white focus:outline-none placeholder-zinc-500 font-bold"
+                        max="100"
+                        placeholder="10"
+                        value={newPlanCashbackPct}
+                        onChange={(e) => setNewPlanCashbackPct(e.target.value)}
+                        className="w-full pl-3 pr-7 py-2 bg-black border border-white/10 rounded text-xs text-white focus:outline-none placeholder-zinc-500 font-bold text-center"
                       />
+                      <span className="absolute right-2.5 top-2 text-xs text-emerald-400 font-bold">%</span>
                     </div>
                   </div>
 
@@ -927,14 +944,24 @@ export default function ClubConfig() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Cashback $</label>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    value={editPlanCashback}
-                                    onChange={(e) => setEditPlanCashback(e.target.value)}
-                                    className="w-full px-3 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold text-emerald-400"
-                                  />
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Cashback %</label>
+                                    <span className="text-[10px] text-emerald-400 font-bold font-mono">
+                                      ${((parseFloat(editPlanPrice || '0') * parseFloat(editPlanCashbackPct || '0')) / 100).toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <div className="relative">
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      min="0"
+                                      max="100"
+                                      value={editPlanCashbackPct}
+                                      onChange={(e) => setEditPlanCashbackPct(e.target.value)}
+                                      className="w-full pl-2 pr-6 py-1.5 bg-black border border-white/10 rounded text-xs text-white focus:outline-none font-bold text-emerald-400 text-center"
+                                    />
+                                    <span className="absolute right-2 top-1.5 text-xs text-emerald-400 font-bold">%</span>
+                                  </div>
                                 </div>
                                 <div>
                                   <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Meses</label>
@@ -999,7 +1026,7 @@ export default function ClubConfig() {
                                   </span>
                                   <span>&bull;</span>
                                   <span style={{ color: 'var(--color-primary, #00F5D4)' }} className="font-bold">
-                                    +${cashbackAmt} cashback
+                                    +${cashbackAmt} cashback {Number(p.price) > 0 ? `(${Math.round((Number(cashbackAmt) / Number(p.price)) * 100)}%)` : ''}
                                   </span>
                                 </div>
                               </div>
@@ -1265,7 +1292,47 @@ export default function ClubConfig() {
                 </div>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-6">
+                {/* Cashback Tienda / Barra Retail */}
+                <div className="p-4 rounded-xl bg-black border border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="block text-xs font-bold text-white uppercase tracking-wider">
+                        Cashback en Tienda / Barra Retail
+                      </span>
+                      <span className="text-[11px] text-zinc-400">
+                        Porcentaje acumulable al monedero del socio por compra de suplementos, bebidas o snacks.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-[var(--color-primary,#00F5D4)]/10 border border-[var(--color-primary,#00F5D4)]/30 font-mono font-black text-sm text-[var(--color-primary,#00F5D4)]">
+                      <span>{retailCashback}%</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 pt-1">
+                    <input
+                      type="range"
+                      min="0"
+                      max="30"
+                      step="1"
+                      value={retailCashback}
+                      onChange={(e) => setRetailCashback(Number(e.target.value))}
+                      className="w-full cursor-pointer accent-[var(--color-primary,#00F5D4)]"
+                    />
+                    <div className="relative w-20 shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={retailCashback}
+                        onChange={(e) => setRetailCashback(Number(e.target.value))}
+                        className="w-full px-2 py-1.5 bg-zinc-900 border border-white/10 rounded text-xs text-white font-bold text-center"
+                      />
+                      <span className="absolute right-2 top-1.5 text-xs text-zinc-400 font-bold">%</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-zinc-200 uppercase tracking-wider">
                     Enlace Directo de Google Reviews (5 Estrellas)
