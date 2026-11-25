@@ -55,6 +55,11 @@ export default function WalletAudit() {
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [showAllPayments, setShowAllPayments] = useState(false)
 
+  // Estados para Restitución de Cashback Congelado
+  const [reinstateLoading, setReinstateLoading] = useState(false)
+  const [reinstateMsg, setReinstateMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
+  const [reinstateReason, setReinstateReason] = useState('')
+
   // Función para exportar historial del socio en formato Excel (.xls con tabla nativa)
   const exportCustomerDataCSV = () => {
     if (!customerHistory) return
@@ -283,6 +288,27 @@ export default function WalletAudit() {
     }
   }
 
+  // Restituir cashback congelado (retorno del cliente al gimnasio)
+  const handleReinstate = async () => {
+    if (!selectedCustomerId) return
+    try {
+      setReinstateLoading(true)
+      setReinstateMsg(null)
+      await axios.post('/api/club/wallet/reinstate', {
+        customerId: selectedCustomerId,
+        reason: reinstateReason.trim() || 'Retorno del socio al gimnasio',
+      })
+      setReinstateMsg({ text: '✅ Cashback restituido. El saldo histórico está disponible nuevamente.', type: 'success' })
+      setReinstateReason('')
+      await fetchWalletData()
+      await openCustomerHistory(selectedCustomerId, 1, txTypeFilter, txDateFrom, txDateTo)
+    } catch (err: any) {
+      setReinstateMsg({ text: err?.response?.data?.error || 'Error al restituir cashback', type: 'error' })
+    } finally {
+      setReinstateLoading(false)
+    }
+  }
+
   // Filtrado reactivo por Nombre o Celular
   const filteredCustomers = useMemo(() => {
     return (data.customers || []).filter((c: any) => {
@@ -485,6 +511,11 @@ export default function WalletAudit() {
                         {c.cashbackStatus === 'EXPIRED' && (
                           <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400">
                             Expirado
+                          </span>
+                        )}
+                        {c.cashbackStatus === 'FROZEN' && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400">
+                            ❄️ Congelado
                           </span>
                         )}
                         {c.cashbackStatus === 'ACTIVE' && c.daysRemaining !== null && (
@@ -747,6 +778,50 @@ export default function WalletAudit() {
                       </div>
                     )}
                   </div>
+
+                  {/* Bloque: Restitución de Cashback Congelado (solo si está congelado) */}
+                  {customerHistory.customer.cashbackFrozenAt && (
+                    <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-500/20 space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-black text-blue-300 uppercase tracking-wider">
+                          ❄️ Cashback Congelado
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-relaxed">
+                        Este socio tiene <strong className="text-blue-300">${customerHistory.customer.cashbackFrozenBalance?.toFixed(2) || '0.00'} USD</strong> congelados
+                        desde el <strong className="text-white">{new Date(customerHistory.customer.cashbackFrozenAt).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>.
+                        El saldo está preservado en la base de datos. Si el socio vuelve, puedes restituirlo aquí.
+                      </p>
+                      <div>
+                        <label className="text-[10px] text-zinc-400 block mb-1">Motivo de restitución</label>
+                        <input
+                          type="text"
+                          placeholder="Ej: Regresó al gimnasio en diciembre"
+                          value={reinstateReason}
+                          onChange={(e) => setReinstateReason(e.target.value)}
+                          className="w-full px-3 py-2 bg-zinc-900 border border-blue-500/30 rounded-xl text-xs text-white focus:outline-none mb-2"
+                        />
+                        {reinstateMsg && (
+                          <div className={`p-2.5 rounded-xl text-xs flex items-center gap-2 mb-2 ${
+                            reinstateMsg.type === 'success'
+                              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                              : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                          }`}>
+                            {reinstateMsg.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+                            <span>{reinstateMsg.text}</span>
+                          </div>
+                        )}
+                        <button
+                          disabled={reinstateLoading}
+                          onClick={handleReinstate}
+                          className="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-500 text-white shadow-lg"
+                        >
+                          {reinstateLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                          Restituir Cashback al Socio
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Filtros de Movimientos */}
                   <div>

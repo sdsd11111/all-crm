@@ -20,7 +20,12 @@ export async function GET(req: Request) {
 
     const customer = await prisma.customer.findFirst({
       where: { id: customerId, tenantId },
-      include: { wallets: { where: { tenantId } } },
+      include: {
+        wallets: {
+          where: { tenantId },
+          include: { transactions: { where: { type: 'CASHBACK_FROZEN' }, take: 1, orderBy: { createdAt: 'desc' } } }
+        }
+      },
     })
 
     if (!customer) {
@@ -64,7 +69,11 @@ export async function GET(req: Request) {
         id: customer.id,
         name: customer.name,
         phone: customer.phone,
-        balance: Number(wallet?.balance || 0),
+        // Saldo efectivo: 0 si está congelado. El histórico queda en DB.
+        balance: wallet?.cashbackFrozenAt ? 0 : Number(wallet?.balance || 0),
+        historicalBalance: Number(wallet?.balance || 0),
+        cashbackFrozenAt: wallet?.cashbackFrozenAt || null,
+        cashbackFrozenBalance: Number(wallet?.cashbackFrozenBalance || 0),
         membershipActive: customer.membershipActive,
         membershipExpiry: customer.membershipExpiry,
       },

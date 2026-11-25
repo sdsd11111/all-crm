@@ -17,7 +17,10 @@ export async function GET(req: Request) {
       where: { tenantId },
     })
 
-    const totalBalance = allWallets.reduce((acc, curr) => acc + Number(curr.balance), 0)
+    // Métricas: totalBalance solo cuenta saldos NO congelados (efectivos)
+    const totalBalance = allWallets.reduce((acc, curr) => {
+      return acc + (curr.cashbackFrozenAt ? 0 : Number(curr.balance))
+    }, 0)
     const redeemed = allTransactions
       .filter((t) => t.type === 'REDEEMED')
       .reduce((acc, curr) => acc + Number(curr.amount), 0)
@@ -43,11 +46,19 @@ export async function GET(req: Request) {
       const expiry = w.customer.membershipExpiry ? new Date(w.customer.membershipExpiry) : null
       // Fecha límite de cashback: Vencimiento de membresía + 30 días de gracia
       const cashbackDeadline = expiry ? new Date(expiry.getTime() + 30 * 24 * 60 * 60 * 1000) : null
-      
-      let cashbackStatus: 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' = 'ACTIVE'
+
+      // Saldo efectivo: si el cashback está congelado, la UI muestra $0 (el DB conserva el balance real)
+      const isFrozen = !!w.cashbackFrozenAt
+      const effectiveBalance = isFrozen ? 0 : Number(w.balance)
+
+      let cashbackStatus: 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' | 'FROZEN' = 'ACTIVE'
       let daysRemaining = null
 
-      if (cashbackDeadline) {
+      if (isFrozen) {
+        // Cashback congelado: expiró hace tiempo, el saldo está preservado pero no visible
+        cashbackStatus = 'FROZEN'
+        daysRemaining = 0
+      } else if (cashbackDeadline) {
         const diffMs = cashbackDeadline.getTime() - now.getTime()
         daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
         if (daysRemaining <= 0) {
@@ -63,7 +74,10 @@ export async function GET(req: Request) {
         id: w.customer.id,
         name: w.customer.name,
         phone: w.customer.phone,
-        balance: Number(w.balance),
+        balance: effectiveBalance, // Saldo visible (0 si congelado)
+        historicalBalance: Number(w.balance), // Saldo real en DB (siempre preservado)
+        cashbackFrozenAt: w.cashbackFrozenAt, // Para que la UI pueda mostrar "Congelado el..."
+        cashbackFrozenBalance: Number(w.cashbackFrozenBalance || 0),
         membershipExpiry: expiry,
         cashbackDeadline,
         cashbackStatus,
