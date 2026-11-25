@@ -26,21 +26,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Saldo insuficiente en monedero' }, { status: 400 })
     }
 
-    // Validación 1: Cashback congelado (expiró y ya fue procesado por el cron)
-    if (wallet.cashbackFrozenAt) {
-      return NextResponse.json({
-        error: `El cashback de este socio está congelado desde el ${new Date(wallet.cashbackFrozenAt).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}. Para reactivarlo, usa la opción "Restituir Cashback" en su perfil.`,
-        code: 'CASHBACK_FROZEN',
-      }, { status: 403 })
-    }
-
-    // Validación 2: Cashback expirado por plazo (redundancia pre-cron, mismo día del vencimiento)
+    // Validación: Cashback expirado por plazo (redundancia pre-cron, mismo día del vencimiento)
     if (customer.membershipExpiry) {
       const expiry = new Date(customer.membershipExpiry)
       const cashbackDeadline = new Date(expiry.getTime() + 30 * 24 * 60 * 60 * 1000)
       if (new Date() > cashbackDeadline) {
         return NextResponse.json({
-          error: 'El cashback de este socio ha expirado (30 días sin renovar membresía). Contacta al sistema para restaurarlo.',
+          error: 'El cashback de este socio ha expirado (30 días sin renovar membresía).',
           code: 'CASHBACK_EXPIRED',
         }, { status: 403 })
       }

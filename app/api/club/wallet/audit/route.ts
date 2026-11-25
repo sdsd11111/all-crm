@@ -17,10 +17,8 @@ export async function GET(req: Request) {
       where: { tenantId },
     })
 
-    // Métricas: totalBalance solo cuenta saldos NO congelados (efectivos)
-    const totalBalance = allWallets.reduce((acc, curr) => {
-      return acc + (curr.cashbackFrozenAt ? 0 : Number(curr.balance))
-    }, 0)
+    // Métricas: totalBalance cuenta el saldo activo en circulación
+    const totalBalance = allWallets.reduce((acc, curr) => acc + Number(curr.balance), 0)
     const redeemed = allTransactions
       .filter((t) => t.type === 'REDEEMED')
       .reduce((acc, curr) => acc + Number(curr.amount), 0)
@@ -47,24 +45,19 @@ export async function GET(req: Request) {
       // Fecha límite de cashback: Vencimiento de membresía + 30 días de gracia
       const cashbackDeadline = expiry ? new Date(expiry.getTime() + 30 * 24 * 60 * 60 * 1000) : null
 
-      // Saldo efectivo: si el cashback está congelado, la UI muestra $0 (el DB conserva el balance real)
-      const isFrozen = !!w.cashbackFrozenAt
-      const effectiveBalance = isFrozen ? 0 : Number(w.balance)
+      const activeBalance = Number(w.balance)
+      const archivedBalance = Number(w.cashbackFrozenBalance || 0)
 
-      let cashbackStatus: 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' | 'FROZEN' = 'ACTIVE'
+      let cashbackStatus: 'ACTIVE' | 'GRACE_PERIOD' | 'EXPIRED' = 'ACTIVE'
       let daysRemaining = null
 
-      if (isFrozen) {
-        // Cashback congelado: expiró hace tiempo, el saldo está preservado pero no visible
-        cashbackStatus = 'FROZEN'
-        daysRemaining = 0
-      } else if (cashbackDeadline) {
+      if (cashbackDeadline) {
         const diffMs = cashbackDeadline.getTime() - now.getTime()
         daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
         if (daysRemaining <= 0) {
           cashbackStatus = 'EXPIRED'
         } else if (expiry && now > expiry) {
-          cashbackStatus = 'GRACE_PERIOD' // En el mes de cuenta regresiva para volver
+          cashbackStatus = 'GRACE_PERIOD'
         } else {
           cashbackStatus = 'ACTIVE'
         }
@@ -74,10 +67,8 @@ export async function GET(req: Request) {
         id: w.customer.id,
         name: w.customer.name,
         phone: w.customer.phone,
-        balance: effectiveBalance, // Saldo visible (0 si congelado)
-        historicalBalance: Number(w.balance), // Saldo real en DB (siempre preservado)
-        cashbackFrozenAt: w.cashbackFrozenAt, // Para que la UI pueda mostrar "Congelado el..."
-        cashbackFrozenBalance: Number(w.cashbackFrozenBalance || 0),
+        balance: activeBalance,
+        archivedBalance,
         membershipExpiry: expiry,
         cashbackDeadline,
         cashbackStatus,

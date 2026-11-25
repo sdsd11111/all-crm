@@ -69,11 +69,8 @@ export async function GET(req: Request) {
         id: customer.id,
         name: customer.name,
         phone: customer.phone,
-        // Saldo efectivo: 0 si está congelado. El histórico queda en DB.
-        balance: wallet?.cashbackFrozenAt ? 0 : Number(wallet?.balance || 0),
-        historicalBalance: Number(wallet?.balance || 0),
-        cashbackFrozenAt: wallet?.cashbackFrozenAt || null,
-        cashbackFrozenBalance: Number(wallet?.cashbackFrozenBalance || 0),
+        balance: Number(wallet?.balance || 0),
+        archivedBalance: Number(wallet?.cashbackFrozenBalance || 0),
         membershipActive: customer.membershipActive,
         membershipExpiry: customer.membershipExpiry,
       },

@@ -43,13 +43,13 @@ async function handleFreeze(req: NextRequest) {
     const now = new Date()
 
     // Buscar wallets candidatas:
-    // - Con saldo positivo (hay algo que congelar)
-    // - Sin congelación previa (cashbackFrozenAt IS NULL)
+    // - Con saldo positivo activo (balance > 0)
     // - Cuyo cliente tenga membershipExpiry registrada
+    // Nota: ya no filtramos por cashbackFrozenAt === null porque un cliente puede
+    // volver, generar nuevo cashback, y volver a expirar en un ciclo posterior.
     const candidates = await prisma.wallet.findMany({
       where: {
         balance: { gt: 0 },
-        cashbackFrozenAt: null,
         customer: {
           membershipExpiry: { not: null },
         },
@@ -88,26 +88,31 @@ async function handleFreeze(req: NextRequest) {
       }
 
       const frozenBalance = Number(wallet.balance)
+      const previousArchived = Number(wallet.cashbackFrozenBalance || 0)
+      const newArchivedTotal = parseFloat((previousArchived + frozenBalance).toFixed(2))
       const frozenAt = now
 
       try {
-        // Operación atómica: congelar wallet + registrar transacción de auditoría
+        // Operación atómica:
+        // 1. Pasa balance activo a 0.00 (el cliente empieza de 0 si regresa sin pedir restitución)
+        // 2. Acumula el saldo expirado en cashbackFrozenBalance (respaldo histórico acumulativo)
+        // 3. Registra transacción inmutable CASHBACK_EXPIRED_ARCHIVE para auditoría
         await prisma.$transaction([
           prisma.wallet.update({
             where: { id: wallet.id },
             data: {
+              balance: 0,
               cashbackFrozenAt: frozenAt,
-              cashbackFrozenBalance: frozenBalance,
-              // balance NO se modifica. Queda como respaldo histórico.
+              cashbackFrozenBalance: newArchivedTotal,
             },
           }),
           prisma.walletTransaction.create({
             data: {
               tenantId: wallet.tenantId,
               walletId: wallet.id,
-              type: 'CASHBACK_FROZEN',
-              amount: 0, // No es un movimiento de dinero, es un evento de estado
-              description: `Cashback congelado automáticamente. Saldo histórico preservado: $${frozenBalance.toFixed(2)} USD. Deadline: ${cashbackDeadline.toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}.`,
+              type: 'CASHBACK_EXPIRED_ARCHIVE',
+              amount: frozenBalance,
+              description: `Cashback expirado y archivado: $${frozenBalance.toFixed(2)} USD. Saldo activo reiniciado a $0.00. Total archivado disponible para SuperAdmin: $${newArchivedTotal.toFixed(2)} USD.`,
               referenceId: `CASHBACK_FREEZE_${customer.id}_${expiry.toISOString().split('T')[0]}`,
             },
           }),
