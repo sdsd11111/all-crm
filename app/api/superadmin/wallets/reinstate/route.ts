@@ -83,7 +83,14 @@ export async function POST(req: Request) {
     const remainingArchived = parseFloat((archivedAvailable - amountToRestore).toFixed(2))
     const now = new Date()
 
-    await prisma.$transaction([
+    // Si su cashbackDeadline ya venció (membershipExpiry + 30 días < now),
+    // actualizamos membershipExpiry a `now` para darle 30 días de gracia desde hoy
+    // y que no siga apareciendo como "Expirado" ni bloqueado para canje.
+    const currentExpiry = wallet.customer.membershipExpiry ? new Date(wallet.customer.membershipExpiry) : null
+    const currentDeadline = currentExpiry ? new Date(currentExpiry.getTime() + 30 * 24 * 60 * 60 * 1000) : null
+    const needsGraceReset = !currentDeadline || now > currentDeadline
+
+    const txOps: any[] = [
       prisma.wallet.update({
         where: { id: wallet.id },
         data: {
@@ -102,7 +109,18 @@ export async function POST(req: Request) {
           referenceId: `SUPERADMIN_REINSTATE_${customerId}_${now.getTime()}`,
         },
       }),
-    ])
+    ]
+
+    if (needsGraceReset) {
+      txOps.push(
+        prisma.customer.update({
+          where: { id: customerId },
+          data: { membershipExpiry: now },
+        })
+      )
+    }
+
+    await prisma.$transaction(txOps)
 
     return NextResponse.json({
       success: true,
