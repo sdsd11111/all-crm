@@ -81,7 +81,47 @@ export default function EditTenantPage() {
     evaluations: 0,
   })
 
+  // Cashback Archivado (Exclusivo SuperAdmin)
+  const [archivedWallets, setArchivedWallets] = useState<any[]>([])
+  const [reinstatingId, setReinstatingId] = useState<string | null>(null)
+  const [reinstateFeedback, setReinstateFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const loadArchivedWallets = async () => {
+    try {
+      const res = await fetch(`/api/superadmin/wallets/reinstate?tenantId=${tenantId}`)
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setArchivedWallets(data.wallets || [])
+      }
+    } catch {}
+  }
+
+  const handleReinstateWallet = async (customerId: string, customerName: string) => {
+    try {
+      setReinstatingId(customerId)
+      setReinstateFeedback(null)
+      const res = await fetch('/api/superadmin/wallets/reinstate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId,
+          tenantId,
+          reason: `Restitución manual por SuperAdmin para ${customerName}`,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al restituir')
+      setReinstateFeedback({ type: 'success', text: data.message })
+      await loadArchivedWallets()
+    } catch (err: any) {
+      setReinstateFeedback({ type: 'error', text: err.message })
+    } finally {
+      setReinstatingId(null)
+    }
+  }
+
   useEffect(() => {
+    loadArchivedWallets()
     async function loadTenant() {
       try {
         setLoading(true)
@@ -752,6 +792,58 @@ export default function EditTenantPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Cashback Archivado (Exclusivo SuperAdmin) */}
+        <div className="bg-zinc-900/50 border border-blue-500/20 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-400" />
+                Cashback Expirado / Archivado (Exclusivo SuperAdmin)
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Socios cuyo cashback expiró tras 30 días de gracia. Su saldo activo está en $0.00, pero aquí conservas su respaldo histórico por si regresa y decides restituirlo.
+              </p>
+            </div>
+          </div>
+
+          {reinstateFeedback && (
+            <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+              reinstateFeedback.type === 'success'
+                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                : 'bg-red-500/10 border border-red-500/20 text-red-400'
+            }`}>
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{reinstateFeedback.text}</span>
+            </div>
+          )}
+
+          {archivedWallets.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic">No hay socios con cashback archivado en este gimnasio.</p>
+          ) : (
+            <div className="divide-y divide-zinc-800/80 border border-zinc-800 rounded-xl overflow-hidden">
+              {archivedWallets.map((w) => (
+                <div key={w.walletId} className="p-3.5 bg-zinc-950/60 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold text-white">{w.customerName}</p>
+                    <p className="text-[11px] text-zinc-400 font-mono">+{w.customerPhone}</p>
+                    <p className="text-[11px] text-blue-400 mt-0.5">
+                      Archivado: <strong>${w.archivedBalance.toFixed(2)} USD</strong> &bull; Activo actual: ${w.activeBalance.toFixed(2)} USD
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={reinstatingId === w.customerId}
+                    onClick={() => handleReinstateWallet(w.customerId, w.customerName)}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all disabled:opacity-50 shrink-0"
+                  >
+                    {reinstatingId === w.customerId ? 'Restituyendo...' : `Restituir $${w.archivedBalance.toFixed(2)}`}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
